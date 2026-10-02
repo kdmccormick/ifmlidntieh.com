@@ -1,0 +1,61 @@
+---
+const bandName = 'I Feel More Like I Do Now Than I Ever Have';
+const repetitions = Array.from({ length: 100 }, (_, i) => i);
+---
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>IFMLIDNTIEH</title>
+		<style>
+			@font-face {
+				font-family: 'Shabby';
+				src: url('/fonts/Shabby.ttf') format('truetype');
+				font-weight: normal;
+				font-style: normal;
+			}
+
+			html, body {
+				margin: 0;
+			}
+
+			body {
+				background-image: url('/images/background.jpg');
+				background-size: cover;
+				background-position: center;
+				background-repeat: no-repeat;
+				background-attachment: fixed;
+			}
+
+			.backdrop-text p {
+				margin: 0;
+				word-break: break-all;
+				font-family: 'Shabby', sans-serif;
+				font-size: clamp(20px, 6vw, 40px);
+				font-weight: bold;
+				text-transform: uppercase;
+			}
+
+			.backdrop-text p span {
+				color: #88a;
+				opacity: 0.5;
+			}
+
+			.backdrop-text p span.highlight {
+				color: #fff;
+				opacity: 1;
+				word-break: normal;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="backdrop-text" aria-hidden="true">
+			<p>{repetitions.map((i) => (
+				<>
+					<span class={i === 2 ? 'highlight' : undefined}>{bandName}</span>
+					{i < repetitions.length - 1 && ' '}
+				</>
+			))}</p>
+		</div>
+	</body>
+</html>
