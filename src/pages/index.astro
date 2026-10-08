@@ -1,6 +1,27 @@
 ---
 const bandName = 'I Feel More Like I Do Now Than I Ever Have';
 const repetitions = Array.from({ length: 100 }, (_, i) => i);
+
+const tiles = [
+	{
+		title: 'Summer 2026 House Show',
+		image: '/images/tiles/summer-2026-house-show.jpg',
+		top: '45vh',
+		left: '8%',
+	},
+	{
+		title: 'Fall 2026 Show - Upcoming',
+		image: '/images/tiles/fall-2026-show-upcoming.jpg',
+		top: '85vh',
+		left: '50%',
+	},
+	{
+		title: 'Consequences - Lyrics',
+		image: '/images/tiles/consequences-lyrics.png',
+		top: '125vh',
+		left: '16%',
+	},
+];
 ---
 <html lang="en">
 	<head>
@@ -15,11 +36,19 @@ const repetitions = Array.from({ length: 100 }, (_, i) => i);
 				font-style: normal;
 			}
 
+			@font-face {
+				font-family: 'National Old Style';
+				src: url('/fonts/NationalOldStyle.ttf') format('truetype');
+				font-weight: normal;
+				font-style: normal;
+			}
+
 			html, body {
 				margin: 0;
 			}
 
 			body {
+				position: relative;
 				background-image: url('/images/background.jpg');
 				background-size: cover;
 				background-position: center;
@@ -45,6 +74,103 @@ const repetitions = Array.from({ length: 100 }, (_, i) => i);
 				color: #fff;
 				opacity: 1;
 				word-break: normal;
+				text-shadow:
+					0 0 4px rgba(0, 0, 0, 0.95),
+					0 0 12px rgba(0, 0, 0, 0.9),
+					0 0 28px rgba(0, 0, 0, 0.85),
+					0 0 60px rgba(0, 0, 0, 0.75);
+			}
+
+			/* Content layer: floats tiles over the backdrop text at irregular
+			   positions. No explicit height, since its only children are
+			   absolutely positioned - their top offsets are what place them
+			   down the length of the page. */
+			.content-layer {
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				z-index: 2;
+			}
+
+			.tile {
+				position: absolute;
+				width: 560px;
+				max-width: 85vw;
+				margin: 0;
+				padding: 0;
+			}
+
+			.tile::before {
+				content: '';
+				position: absolute;
+				inset: -6px;
+				border: 3px solid #fff;
+				filter: url(#tattered-edge);
+				transition: filter 0.2s ease;
+				pointer-events: none;
+			}
+
+			.tile:hover::before {
+				filter: url(#tattered-edge) drop-shadow(0 0 10px rgba(255, 255, 255, 0.85)) drop-shadow(0 0 24px rgba(255, 255, 255, 0.55));
+			}
+
+			.tile-trigger {
+				display: block;
+				width: 100%;
+				padding: 0;
+				border: none;
+				background: none;
+				cursor: pointer;
+			}
+
+			.tile img {
+				display: block;
+				width: 100%;
+				height: 340px;
+				object-fit: cover;
+			}
+
+			.tile figcaption {
+				position: absolute;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				padding: 14px 16px 18px;
+				background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+				font-family: 'Shabby', serif;
+				font-weight: normal;
+				color: #fff;
+				font-size: 22px;
+				text-align: center;
+				pointer-events: none;
+			}
+
+			.detail-popup {
+				position: fixed;
+				inset: 0;
+				margin: auto;
+				width: 80vw;
+				height: 80vh;
+				max-width: 80vw;
+				max-height: 80vh;
+				padding: 0;
+				border: none;
+			}
+
+			.detail-popup::backdrop {
+				background: rgba(0, 0, 0, 0.6);
+			}
+
+			.detail-popup-close {
+				position: absolute;
+				top: 0.5rem;
+				right: 0.75rem;
+				border: none;
+				background: none;
+				font-size: 2rem;
+				line-height: 1;
+				cursor: pointer;
 			}
 		</style>
 	</head>
@@ -57,5 +183,41 @@ const repetitions = Array.from({ length: 100 }, (_, i) => i);
 				</>
 			))}</p>
 		</div>
+
+		<svg width="0" height="0" style="position: absolute;" aria-hidden="true" focusable="false">
+			<filter id="tattered-edge">
+				<feTurbulence type="fractalNoise" baseFrequency="0.012 0.06" numOctaves="2" seed="7" result="noise" />
+				<feDisplacementMap in="SourceGraphic" in2="noise" scale="10" xChannelSelector="R" yChannelSelector="G" />
+			</filter>
+		</svg>
+
+		<div class="content-layer">
+			{tiles.map((tile) => (
+				<figure class="tile" style={`top: ${tile.top}; left: ${tile.left};`}>
+					<button type="button" class="tile-trigger" aria-label={`View details: ${tile.title}`}>
+						<img src={tile.image} alt={tile.title} />
+					</button>
+					<figcaption>{tile.title}</figcaption>
+				</figure>
+			))}
+		</div>
+
+		<dialog class="detail-popup">
+			<button type="button" class="detail-popup-close" aria-label="Close">&times;</button>
+		</dialog>
+
+		<script>
+			const dialog = document.querySelector<HTMLDialogElement>('.detail-popup')!;
+
+			document.querySelectorAll('.tile-trigger').forEach((button) => {
+				button.addEventListener('click', () => dialog.showModal());
+			});
+
+			dialog.querySelector('.detail-popup-close')?.addEventListener('click', () => dialog.close());
+
+			dialog.addEventListener('click', (event) => {
+				if (event.target === dialog) dialog.close();
+			});
+		</script>
 	</body>
 </html>
