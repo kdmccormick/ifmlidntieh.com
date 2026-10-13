@@ -70,10 +70,18 @@ const tiles = [
 				opacity: 0.5;
 			}
 
-			.backdrop-text p span.highlight {
+			/* Permanent trait of the original 3rd instance only - stays even
+			   after .active has moved on to a later instance. */
+			.backdrop-text p span.origin {
+				word-break: normal;
+			}
+
+			/* Dynamic "currently highlighted" state, moved between instances
+			   by the scroll script below. Deliberately doesn't touch
+			   word-break, so only .origin ever gets the word-break exception. */
+			.backdrop-text p span.active {
 				color: #fff;
 				opacity: 1;
-				word-break: normal;
 				text-shadow:
 					0 0 4px rgba(0, 0, 0, 0.95),
 					0 0 12px rgba(0, 0, 0, 0.9),
@@ -178,7 +186,7 @@ const tiles = [
 		<div class="backdrop-text" aria-hidden="true">
 			<p>{repetitions.map((i) => (
 				<>
-					<span class={i === 2 ? 'highlight' : undefined}>{bandName}</span>
+					<span class:list={['backdrop-span', { origin: i === 2, active: i === 0 }]} data-index={i}>{bandName}</span>
 					{i < repetitions.length - 1 && ' '}
 				</>
 			))}</p>
@@ -218,6 +226,51 @@ const tiles = [
 			dialog.addEventListener('click', (event) => {
 				if (event.target === dialog) dialog.close();
 			});
+		</script>
+
+		<script>
+			// A single symmetric rule, applied on scroll in either direction
+			// and on initial load: an instance "qualifies" to be active once
+			// its top sits at least one line-height below the viewport top
+			// (i.e. it isn't within a line-height of the edge). Active is
+			// always the earliest instance that qualifies, so the white text
+			// hands off before it ever gets close to touching the top edge.
+			// The original 3rd instance keeps its own `.origin` class
+			// (word-break: normal) permanently - this only ever moves `.active`.
+			// Estimated line-height in px, used only for the advance-buffer
+			// math below - not read from the DOM/CSS, so it can't fight with
+			// or get thrown off by the actual line-height CSS controls.
+			// Tune this directly if the buffer feels too tight or too loose.
+			const ESTIMATED_LINE_HEIGHT_PX = 50;
+
+			const spans = Array.from(document.querySelectorAll<HTMLElement>('.backdrop-span'));
+			let activeIndex = spans.findIndex((span) => span.classList.contains('active'));
+
+			function setActiveIndex(nextIndex: number) {
+				spans[activeIndex].classList.remove('active');
+				activeIndex = nextIndex;
+				spans[activeIndex].classList.add('active');
+			}
+
+			function qualifies(el: HTMLElement) {
+				return el.getBoundingClientRect().top >= ESTIMATED_LINE_HEIGHT_PX;
+			}
+
+			function updateActive() {
+				if (activeIndex < 0) return;
+
+				while (activeIndex < spans.length - 1 && !qualifies(spans[activeIndex])) {
+					setActiveIndex(activeIndex + 1);
+				}
+
+				while (activeIndex > 0 && qualifies(spans[activeIndex - 1])) {
+					setActiveIndex(activeIndex - 1);
+				}
+			}
+
+			updateActive();
+			window.addEventListener('scroll', updateActive, { passive: true });
+			window.addEventListener('resize', updateActive);
 		</script>
 	</body>
 </html>
