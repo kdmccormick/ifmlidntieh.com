@@ -1,23 +1,65 @@
 ---
 const bandName = 'I Feel More Like I Do Now Than I Ever Have';
-const repetitions = Array.from({ length: 100 }, (_, i) => i);
+const repetitions = Array.from({ length: 400 }, (_, i) => i);
 
-// Placeholder: all 4 "sections" point at the same photo/text for now, while
-// the parallax scroll mechanics get built out. Swap in real per-section
-// images and content once they exist - the arrays just need to stay the
-// same length as each other.
-const SECTION_COUNT = 4;
-const backgroundImages = Array.from({ length: SECTION_COUNT }, () => '/images/background.jpg');
-const contentSets = Array.from({ length: SECTION_COUNT }, (_, i) => ({
-	label: `This is content item ${i}`,
-}));
+// Placeholder images/copy while the parallax scroll mechanics get built out.
+// Swap in real per-section images and copy once they exist.
+const backgroundImages = [
+	'/images/backgrounds/0_swirl.jpg',
+	'/images/backgrounds/1_dancer.jpg',
+	'/images/backgrounds/2_crowd.jpg',
+	'/images/backgrounds/3_lyrics.jpg',
+];
+
+const loremSnippets = [
+	'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+	'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+	'Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.',
+	'Duis aute irure dolor in reprehenderit in voluptate velit esse cillum.',
+	'Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia.',
+	'Curabitur pretium tincidunt lacus, et facilisis vel enim nec placerat.',
+	'Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere.',
+	'Praesent commodo cursus magna, vel scelerisque nisl consectetur et.',
+	'Nullam quis risus eget urna mollis ornare vel eu leo.',
+	'Maecenas sed diam eget risus varius blandit sit amet non magna.',
+];
+let loremIndex = 0;
+function nextLorem() {
+	const text = loremSnippets[loremIndex % loremSnippets.length];
+	loremIndex += 1;
+	return text;
+}
+
+// Content sets 1-4: one "page" each. Set 0 is the table of contents, added
+// below once these exist, so it can link to each one by index.
+const pageSets = [
+	{ layout: 'grid-2x2', items: Array.from({ length: 4 }, () => ({ text: nextLorem() })) },
+	{ layout: 'single', items: Array.from({ length: 1 }, () => ({ text: nextLorem() })) },
+	{ layout: 'columns-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
+	{ layout: 'rows-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
+];
+
+const tocSet = {
+	layout: 'toc',
+	items: pageSets.map((_, i) => ({ text: `Page ${i + 1}`, targetIndex: i + 1 })),
+};
+
+const contentSets = [tocSet, ...pageSets];
+
+// One-sided fade duration, in units of one viewport-height of scroll.
+const CONTENT_FADE_HALF_WIDTH = 1.5;
+// Peaks are spaced out to exactly 2x the half-width, so a set finishes
+// fading to 0 at the same scroll point the next one starts rising from 0 -
+// sequential, not overlapping, with no extra dead gap beyond the fades
+// themselves.
+const CONTENT_PEAK_SPACING = CONTENT_FADE_HALF_WIDTH * 2;
 ---
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>IFMLIDNTIEH</title>
-		<style define:vars={{ sectionCount: SECTION_COUNT }}>
+		<style define:vars={{ contentSetCount: contentSets.length, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
 			@font-face {
 				font-family: 'Shabby';
 				src: url('/fonts/Shabby.ttf') format('truetype');
@@ -30,11 +72,11 @@ const contentSets = Array.from({ length: SECTION_COUNT }, (_, i) => ({
 			}
 
 			body {
-				/* Total scroll length is at least N viewport-heights (one per
-				   section), regardless of how tall the backdrop text happens
-				   to wrap to - if the text is taller, the page just grows to
-				   fit it instead. */
-				min-height: calc(var(--sectionCount) * 100vh);
+				/* Total scroll length is at least enough to reach the last
+				   content set's peak and let it fade back out, regardless of
+				   how tall the backdrop text happens to wrap to - if the text
+				   is taller, the page just grows to fit it instead. */
+				min-height: calc(((var(--contentSetCount) - 1) * var(--contentPeakSpacing) + var(--contentFadeHalfWidth)) * 100vh);
 			}
 
 			.backdrop-text p {
@@ -59,15 +101,31 @@ const contentSets = Array.from({ length: SECTION_COUNT }, (_, i) => ({
 
 			/* Dynamic "currently highlighted" state, moved between instances
 			   by the scroll script below. Deliberately doesn't touch
-			   word-break, so only .origin ever gets the word-break exception. */
+			   word-break, so only .origin ever gets the word-break exception.
+			   Clickable - see the script below - to jump back to the top. */
 			.backdrop-text p span.active {
 				color: #fff;
 				opacity: 1;
+				cursor: pointer;
 				text-shadow:
 					0 0 4px rgba(0, 0, 0, 0.95),
 					0 0 12px rgba(0, 0, 0, 0.9),
 					0 0 28px rgba(0, 0, 0, 0.85),
 					0 0 60px rgba(0, 0, 0, 0.75);
+			}
+
+			/* No background/border of its own - just sits on whatever's
+			   behind it (the page background color, once scrolled past the
+			   last background image), so running off the last image reads
+			   as "we've reached the footer," not "we ran out of images." */
+			.site-footer {
+				position: relative;
+				z-index: 1;
+				padding: 24px 16px;
+				color: #ff0;
+				font-family: monospace;
+				font-size: 14px;
+				text-align: center;
 			}
 
 			/* Layer 2: background images, stacked one per section, pinned to
@@ -79,7 +137,9 @@ const contentSets = Array.from({ length: SECTION_COUNT }, (_, i) => ({
 				inset: 0;
 				overflow: hidden;
 				z-index: -1;
-				background-color: #000;
+				/* Only visible once scrolled past the last background image,
+				   where the track runs out and this shows through beneath it. */
+				background-color: #2d323b;
 			}
 
 			.bg-image-track {
@@ -111,15 +171,66 @@ const contentSets = Array.from({ length: SECTION_COUNT }, (_, i) => ({
 			.content-set {
 				position: absolute;
 				inset: 0;
-				display: flex;
-				align-items: center;
-				justify-content: center;
 				opacity: 0;
 			}
 
-			.content-item {
+			.content-items {
+				width: 100%;
+				height: 100%;
+				display: grid;
+				gap: 4%;
+			}
+
+			.content-set[data-layout='grid-2x2'] .content-items {
+				grid-template-columns: repeat(2, 1fr);
+				grid-template-rows: repeat(2, 1fr);
+			}
+
+			.content-set[data-layout='single'] .content-items {
+				grid-template-columns: 1fr;
+				grid-template-rows: 1fr;
+			}
+
+			.content-set[data-layout='single'] .content-item {
 				width: 70%;
 				height: 70%;
+				margin: auto;
+			}
+
+			.content-set[data-layout='columns-3'] .content-items {
+				grid-template-columns: repeat(3, 1fr);
+				grid-template-rows: 1fr;
+			}
+
+			.content-set[data-layout='rows-3'] .content-items {
+				grid-template-columns: 1fr;
+				grid-template-rows: repeat(3, 1fr);
+			}
+
+			/* The TOC doesn't live inside .content-overlay's box (bottom:5vh
+			   from the viewport) - it's pinned to the literal bottom 10vh of
+			   the viewport, a shorter strip than the other sets get. */
+			.content-set[data-layout='toc'] {
+				position: fixed;
+				inset: auto 5% 0 5%;
+				height: 10vh;
+			}
+
+			.content-set[data-layout='toc'] .content-items {
+				grid-auto-flow: column;
+				grid-template-columns: repeat(4, 1fr);
+				grid-template-rows: 1fr;
+			}
+
+			.content-set[data-layout='toc'] .content-item {
+				font-size: clamp(14px, 1.8vw, 18px);
+				padding: 8px;
+				pointer-events: auto;
+				cursor: pointer;
+				border: none;
+			}
+
+			.content-item {
 				display: flex;
 				align-items: center;
 				justify-content: center;
@@ -127,7 +238,7 @@ const contentSets = Array.from({ length: SECTION_COUNT }, (_, i) => ({
 				padding: 24px;
 				color: #fff;
 				font-family: sans-serif;
-				font-size: clamp(18px, 3vw, 28px);
+				font-size: clamp(16px, 2.4vw, 24px);
 				background-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.45) 60%, transparent 100%);
 			}
 		</style>
@@ -142,6 +253,12 @@ const contentSets = Array.from({ length: SECTION_COUNT }, (_, i) => ({
 			))}</p>
 		</div>
 
+		<footer class="site-footer">
+			<p>
+				⚠️ PLACEHOLDER FOOTER ⚠️ — &copy; 2026 I Feel More Like I Do Now Than I Ever Have. All rights reserved (probably). Replace this with real copyright/contact/links later.
+			</p>
+		</footer>
+
 		<div class="bg-image-layer" aria-hidden="true">
 			<div class="bg-image-track">
 				{backgroundImages.map((src) => (
@@ -152,8 +269,14 @@ const contentSets = Array.from({ length: SECTION_COUNT }, (_, i) => ({
 
 		<div class="content-overlay">
 			{contentSets.map((set, i) => (
-				<div class="content-set" data-index={i}>
-					<div class="content-item">{set.label}</div>
+				<div class="content-set" data-index={i} data-layout={set.layout}>
+					<div class="content-items">
+						{set.items.map((item) => (
+							set.layout === 'toc'
+								? <button type="button" class="content-item" data-target-index={item.targetIndex}>{item.text}</button>
+								: <div class="content-item">{item.text}</div>
+						))}
+					</div>
 				</div>
 			))}
 		</div>
@@ -201,26 +324,34 @@ const contentSets = Array.from({ length: SECTION_COUNT }, (_, i) => ({
 			updateActive();
 			window.addEventListener('scroll', updateActive, { passive: true });
 			window.addEventListener('resize', updateActive);
+
+			// Clicking the active (white) instance jumps back to the top.
+			document.querySelector('.backdrop-text')?.addEventListener('click', (event) => {
+				if ((event.target as HTMLElement).classList.contains('active')) {
+					window.scrollTo({ top: 0, behavior: 'smooth' });
+				}
+			});
 		</script>
 
-		<script>
+		<script define:vars={{ contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
 			// Parallax layers 2 and 3. One continuous scroll progress value
 			// drives both: `progress` is scrollY measured in units of one
-			// section height (100vh), so progress === i means section i
-			// exactly fills the viewport.
+			// viewport-height of scroll.
 			//
 			// Layer 2 (background images) slides at a quarter of actual
 			// scroll speed - it's a transform on the whole stacked track,
 			// not tied to section boundaries at all.
 			//
 			// Layer 3 (content sets) doesn't move; each set's opacity is a
-			// triangular function of `progress` that peaks at 1 when its own
-			// section is exactly centered and crosses 0.5 at the midpoint
-			// between two sections, giving a linear crossfade.
+			// triangular function of `progress` that peaks at 1 when
+			// progress === i * contentPeakSpacing, and reaches 0 exactly
+			// contentFadeHalfWidth before/after that - so one set fully
+			// fades out before the next fades in, rather than crossfading
+			// directly into it.
 			const IMAGE_PARALLAX_FACTOR = 0.25;
 
-			const track = document.querySelector<HTMLElement>('.bg-image-track');
-			const contentSetEls = Array.from(document.querySelectorAll<HTMLElement>('.content-set'));
+			const track = document.querySelector('.bg-image-track');
+			const contentSetEls = Array.from(document.querySelectorAll('.content-set'));
 
 			function updateParallax() {
 				const scrollY = window.scrollY;
@@ -232,9 +363,22 @@ const contentSets = Array.from({ length: SECTION_COUNT }, (_, i) => ({
 
 				const progress = scrollY / sectionHeightPx;
 				contentSetEls.forEach((set, i) => {
-					set.style.opacity = String(Math.max(0, 1 - Math.abs(progress - i)));
+					const peak = i * contentPeakSpacing;
+					const opacity = Math.max(0, 1 - Math.abs(progress - peak) / contentFadeHalfWidth);
+					set.style.opacity = String(opacity);
 				});
 			}
+
+			// Table-of-contents buttons jump straight to a set's peak scroll
+			// position, recomputed at click time so a resize since load
+			// doesn't throw it off.
+			document.querySelectorAll('[data-target-index]').forEach((button) => {
+				button.addEventListener('click', () => {
+					const targetIndex = Number(button.getAttribute('data-target-index'));
+					const top = targetIndex * contentPeakSpacing * window.innerHeight;
+					window.scrollTo({ top, behavior: 'smooth' });
+				});
+			});
 
 			updateParallax();
 			window.addEventListener('scroll', updateParallax, { passive: true });
