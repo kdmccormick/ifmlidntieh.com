@@ -9,6 +9,7 @@ const backgroundImages = [
 	'/images/backgrounds/1_dancer.jpg',
 	'/images/backgrounds/2_crowd.jpg',
 	'/images/backgrounds/3_lyrics.jpg',
+	'/images/backgrounds/4_swirl.jpg',
 ];
 
 const loremSnippets = [
@@ -46,13 +47,22 @@ const tocSet = {
 
 const contentSets = [tocSet, ...pageSets];
 
-// One-sided fade duration, in units of one viewport-height of scroll.
+// Background image layer (see the parallax script): the whole stacked track
+// slides up at this fraction of actual scroll speed.
+const IMAGE_PARALLAX_FACTOR = 0.25;
+
+// Content set i peaks (fully opaque) at the same scroll position where
+// background image i exactly fills the viewport. Image i sits at i*100vh in
+// the untransformed track, and the track has moved up by scrollY *
+// IMAGE_PARALLAX_FACTOR px, so image i fully fills the viewport when
+// scrollY = i*100vh / IMAGE_PARALLAX_FACTOR - i.e. i * (1 / factor)
+// viewport-heights of scroll apart.
+const CONTENT_PEAK_SPACING = 1 / IMAGE_PARALLAX_FACTOR;
+// One-sided fade duration, in units of one viewport-height of scroll. Kept
+// well under half the peak spacing, so there's a brief flat pause at zero
+// opacity between one set finishing its fade-out and the next starting its
+// fade-in, rather than them touching or overlapping.
 const CONTENT_FADE_HALF_WIDTH = 1.5;
-// Peaks are spaced out to exactly 2x the half-width, so a set finishes
-// fading to 0 at the same scroll point the next one starts rising from 0 -
-// sequential, not overlapping, with no extra dead gap beyond the fades
-// themselves.
-const CONTENT_PEAK_SPACING = CONTENT_FADE_HALF_WIDTH * 2;
 ---
 <html lang="en">
 	<head>
@@ -333,7 +343,7 @@ const CONTENT_PEAK_SPACING = CONTENT_FADE_HALF_WIDTH * 2;
 			});
 		</script>
 
-		<script define:vars={{ contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
+		<script define:vars={{ imageParallaxFactor: IMAGE_PARALLAX_FACTOR, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
 			// Parallax layers 2 and 3. One continuous scroll progress value
 			// drives both: `progress` is scrollY measured in units of one
 			// viewport-height of scroll.
@@ -348,8 +358,6 @@ const CONTENT_PEAK_SPACING = CONTENT_FADE_HALF_WIDTH * 2;
 			// contentFadeHalfWidth before/after that - so one set fully
 			// fades out before the next fades in, rather than crossfading
 			// directly into it.
-			const IMAGE_PARALLAX_FACTOR = 0.25;
-
 			const track = document.querySelector('.bg-image-track');
 			const contentSetEls = Array.from(document.querySelectorAll('.content-set'));
 
@@ -358,7 +366,7 @@ const CONTENT_PEAK_SPACING = CONTENT_FADE_HALF_WIDTH * 2;
 				const sectionHeightPx = window.innerHeight;
 
 				if (track) {
-					track.style.transform = `translateY(-${scrollY * IMAGE_PARALLAX_FACTOR}px)`;
+					track.style.transform = `translateY(-${scrollY * imageParallaxFactor}px)`;
 				}
 
 				const progress = scrollY / sectionHeightPx;
