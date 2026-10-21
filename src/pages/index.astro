@@ -2,14 +2,15 @@
 const bandName = 'I Feel More Like I Do Now Than I Ever Have';
 const repetitions = Array.from({ length: 400 }, (_, i) => i);
 
-// Placeholder images/copy while the parallax scroll mechanics get built out.
-// Swap in real per-section images and copy once they exist.
+// One background image per section, named for the section rather than
+// index-prefixed - order here is what determines each section's index (0 is
+// Home, with no nav link - just the top of the site).
 const backgroundImages = [
-	'/images/backgrounds/0_swirl.jpg',
-	'/images/backgrounds/1_dancer.jpg',
-	'/images/backgrounds/2_crowd.jpg',
-	'/images/backgrounds/3_lyrics.jpg',
-	'/images/backgrounds/4_swirl.jpg',
+	'/images/backgrounds/Home.jpg',
+	'/images/backgrounds/Video.jpg',
+	'/images/backgrounds/Events.jpg',
+	'/images/backgrounds/Lyrics.jpg',
+	'/images/backgrounds/About.jpg',
 ];
 
 const loremSnippets = [
@@ -37,17 +38,15 @@ const pageOneParagraphs = [
 	'Curabitur pretium tincidunt lacus, et facilisis vel enim nec placerat. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Praesent commodo cursus magna, vel scelerisque nisl consectetur et.',
 ];
 
-// Content sets, one "page" each, indexed 1-4 (not 0-3) - index 0 is
-// deliberately unused, so background image 0 plays as a plain intro with no
-// content overlay. Nav links to these live in the backdrop text itself now,
-// not in a separate table-of-contents overlay.
+// Content sets, one "page" each - index matches the background image order
+// above (Home=0 has no page/link; Video=1, Events=2, Lyrics=3, About=4).
 const pageSets = [
-	{ layout: 'tattered-text', paragraphs: pageOneParagraphs },
-	{ layout: 'video', youtubeId: 'dQw4w9WgXcQ', title: 'Placeholder video - swap for a real one later' },
-	{ layout: 'columns-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
-	{ layout: 'rows-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
+	{ label: 'Video', index: 1, layout: 'video', youtubeId: 'dQw4w9WgXcQ', title: 'Placeholder video - swap for a real one later' },
+	{ label: 'Events', index: 2, layout: 'columns-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
+	{ label: 'Lyrics', index: 3, layout: 'rows-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
+	{ label: 'About', index: 4, layout: 'tattered-text', paragraphs: pageOneParagraphs },
 ];
-const contentSets = pageSets.map((set, i) => ({ ...set, index: i + 1 }));
+const contentSets = pageSets;
 
 // Nav links embedded in the first 8 (0-7) backdrop-text occurrences, each in
 // the gap between two of them (gap i sits between occurrence i and i+1, so
@@ -56,12 +55,7 @@ const contentSets = pageSets.map((set, i) => ({ ...set, index: i + 1 }));
 // never touching since there's always at least one occurrence between them -
 // and a link's gap can't be immediately next to whichever occurrence is
 // currently the actual-title (its 1-2 bordering gaps are off limits).
-const navLinks = [
-	{ label: 'About', targetIndex: 1 },
-	{ label: 'Video', targetIndex: 2 },
-	{ label: 'Events', targetIndex: 3 },
-	{ label: 'Lyrics', targetIndex: 4 },
-];
+const navLinks = pageSets.map((set) => ({ label: set.label, targetIndex: set.index }));
 const ACTUAL_TITLE_STATIC_INDEX = 2;
 // Static (no-JS) fallback placement - avoids gaps 1 and 2, the two bordering
 // ACTUAL_TITLE_STATIC_INDEX. Gap 4 is left empty, same as in the original
@@ -85,11 +79,12 @@ const IMAGE_PARALLAX_FACTOR = 0.25;
 // scrollY = i*100vh / IMAGE_PARALLAX_FACTOR - i.e. i * (1 / factor)
 // viewport-heights of scroll apart.
 const CONTENT_PEAK_SPACING = 1 / IMAGE_PARALLAX_FACTOR;
-// One-sided fade duration, in units of one viewport-height of scroll. Kept
-// well under half the peak spacing, so there's a brief flat pause at zero
-// opacity between one set finishing its fade-out and the next starting its
-// fade-in, rather than them touching or overlapping.
-const CONTENT_FADE_HALF_WIDTH = 1.5;
+// One-sided fade duration, in units of one viewport-height of scroll. Equal
+// to the full peak spacing, so a set's fade spans the entire gap to each
+// neighboring peak: section N is at 0% exactly when N-1 or N+1 is centered,
+// and two adjacent sections are each at 50% at the midpoint between them -
+// a continuous crossfade, not a fade-out/pause/fade-in.
+const CONTENT_FADE_HALF_WIDTH = CONTENT_PEAK_SPACING;
 // Highest content-set index (4, since they're 1-4) - used for the min-height
 // formula below. Not contentSets.length, since that's now 4 while indices
 // run 1-4 rather than 0-3.
