@@ -141,7 +141,10 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 			   (not broken mid-word like the rest) and is highlighted white. */
 			.backdrop-text p span.actual-title {
 				word-break: normal;
-				color: #cbcbbf;
+				/* Same gold as the nav's hover/current-section color - the
+				   actual title only ever appears on Home, so this doesn't
+				   need to be conditional on anything. */
+				color: #c4ad7a;
 				opacity: 1;
 				text-shadow:
 					0 0 4px rgba(0, 0, 0, 0.95),
@@ -173,6 +176,61 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 			}
 
 			.backdrop-text .nav-link:hover {
+				color: #c4ad7a;
+			}
+
+/* Full section nav, floating independently (not part of the
+			   backdrop text flow) along the bottom. Same look as the inline
+			   nav-links (font, color, shadow, hover), but its own smaller
+			   size - the giant backdrop-text size would be absurd for a
+			   small corner UI element. Hidden on Home itself and faded in by
+			   the script below once scrolled past it. */
+			.section-nav {
+				position: fixed;
+				bottom: 24px;
+				left: 0;
+				right: 0;
+				z-index: 3;
+				display: flex;
+				justify-content: center;
+				gap: 1.5em;
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.3s ease;
+			}
+
+			.section-nav.is-visible {
+				opacity: 1;
+				pointer-events: auto;
+			}
+
+			.section-nav-link {
+				font-family: 'Shabby', sans-serif;
+				font-weight: bold;
+				text-transform: uppercase;
+				/* Same basis (vw) as the backdrop text's clamp(20px, 6vw,
+				   40px) - between its size and the smaller one this used to
+				   be, so it tracks if that one is ever retuned. */
+				font-size: clamp(17px, 4vw, 30px);
+				word-break: normal;
+				color: #fff;
+				background: none;
+				border: none;
+				padding: 0;
+				cursor: pointer;
+				transition: color 0.2s ease;
+				text-shadow:
+					0 0 3px rgba(0, 0, 0, 0.85),
+					0 0 9px rgba(0, 0, 0, 0.75),
+					0 0 18px rgba(0, 0, 0, 0.65),
+					0 0 36px rgba(0, 0, 0, 0.5);
+			}
+
+			.section-nav-link:hover,
+			/* Current section indicator - whichever link's section is
+			   nearest the current scroll position, ties going to the
+			   earlier one (see the script below). Same gold as hover. */
+			.section-nav-link.is-current {
 				color: #c4ad7a;
 			}
 
@@ -223,8 +281,10 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 			.content-overlay {
 				position: fixed;
 				/* vmin, not vh/%, so the margin reads as equal on every side
-				   regardless of viewport aspect ratio. */
-				inset: 5vmin;
+				   regardless of viewport aspect ratio - except the bottom
+				   and right, padded out further to stay clear of the
+				   floating Home link in that corner. */
+				inset: 5vmin calc(5vmin + 20px) calc(5vmin + 60px) 5vmin;
 				z-index: 2;
 				pointer-events: none;
 			}
@@ -401,6 +461,13 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 			))}
 		</div>
 
+		<nav class="section-nav">
+			<button type="button" class="section-nav-link" data-target-index="0">Home</button>
+			{pageSets.map((set) => (
+				<button type="button" class="section-nav-link" data-target-index={set.index}>{set.label}</button>
+			))}
+		</nav>
+
 		<script>
 			// Hard-coded in the markup to index 2 (actual-title) and a fixed
 			// gap assignment (nav links), so the page reads and navigates
@@ -467,6 +534,8 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 			// directly into it.
 			const track = document.querySelector('.bg-image-track');
 			const contentSetEls = Array.from(document.querySelectorAll('.content-set'));
+			const sectionNav = document.querySelector('.section-nav');
+			const sectionNavLinks = Array.from(document.querySelectorAll('.section-nav-link'));
 
 			function updateParallax() {
 				const scrollY = window.scrollY;
@@ -489,6 +558,21 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 					// opacity, so without this, an invisible set could still
 					// steal clicks/selection from the one actually on screen.
 					set.style.pointerEvents = opacity > 0 ? 'auto' : 'none';
+				});
+
+				// Hidden until the first content section (index 1, Video) has
+				// reached 50% opacity on its way up - visible from there on.
+				sectionNav?.classList.toggle('is-visible', progress >= contentPeakSpacing / 2);
+
+				// Current section: whichever peak is nearest, ties going to
+				// the earlier (lower-index) section - each section "owns" the
+				// scroll range up to and including its own midpoint with the
+				// next one, so Math.ceil (not .round) is what gives ties to
+				// the lower side.
+				const currentIndex = Math.max(0, Math.ceil(progress / contentPeakSpacing - 0.5));
+				sectionNavLinks.forEach((link) => {
+					const index = Number(link.getAttribute('data-target-index'));
+					link.classList.toggle('is-current', index === currentIndex);
 				});
 			}
 
