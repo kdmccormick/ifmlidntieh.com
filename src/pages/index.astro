@@ -146,7 +146,7 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 			   (not broken mid-word like the rest) and is highlighted white. */
 			.backdrop-text p span.actual-title {
 				word-break: normal;
-				color: #fff;
+				color: #cbcbbf;
 				opacity: 1;
 				text-shadow:
 					0 0 4px rgba(0, 0, 0, 0.95),
@@ -163,17 +163,22 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 				font: inherit;
 				text-transform: inherit;
 				word-break: normal;
-				color: #cbcbbf;
+				color: #fff;
 				background: none;
 				border: none;
 				padding: 0;
 				margin: 0 0.3em;
 				cursor: pointer;
+				transition: color 0.2s ease;
 				text-shadow:
 					0 0 3px rgba(0, 0, 0, 0.85),
 					0 0 9px rgba(0, 0, 0, 0.75),
 					0 0 18px rgba(0, 0, 0, 0.65),
 					0 0 36px rgba(0, 0, 0, 0.5);
+			}
+
+			.backdrop-text .nav-link:hover {
+				color: #c4ad7a;
 			}
 
 			/* No background/border of its own - just sits on whatever's
@@ -222,10 +227,9 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 			   progress through each section. */
 			.content-overlay {
 				position: fixed;
-				top: 34vh;
-				bottom: 5vh;
-				left: 5%;
-				right: 5%;
+				/* vmin, not vh/%, so the margin reads as equal on every side
+				   regardless of viewport aspect ratio. */
+				inset: 5vmin;
 				z-index: 2;
 				pointer-events: none;
 			}
@@ -277,7 +281,6 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 				position: relative;
 				width: 100%;
 				height: 100%;
-				overflow-y: auto;
 				box-sizing: border-box;
 				padding: 6% 7%;
 				background: #000;
