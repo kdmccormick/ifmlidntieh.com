@@ -37,21 +37,42 @@ const pageOneParagraphs = [
 	'Curabitur pretium tincidunt lacus, et facilisis vel enim nec placerat. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Praesent commodo cursus magna, vel scelerisque nisl consectetur et.',
 ];
 
-// Content sets 1-4: one "page" each. Set 0 is the table of contents, added
-// below once these exist, so it can link to each one by index.
+// Content sets, one "page" each, indexed 1-4 (not 0-3) - index 0 is
+// deliberately unused, so background image 0 plays as a plain intro with no
+// content overlay. Nav links to these live in the backdrop text itself now,
+// not in a separate table-of-contents overlay.
 const pageSets = [
 	{ layout: 'tattered-text', paragraphs: pageOneParagraphs },
 	{ layout: 'video', youtubeId: 'dQw4w9WgXcQ', title: 'Placeholder video - swap for a real one later' },
 	{ layout: 'columns-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
 	{ layout: 'rows-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
 ];
+const contentSets = pageSets.map((set, i) => ({ ...set, index: i + 1 }));
 
-const tocSet = {
-	layout: 'toc',
-	items: pageSets.map((_, i) => ({ text: `Page ${i + 1}`, targetIndex: i + 1 })),
+// Nav links embedded in the first 8 (0-7) backdrop-text occurrences, each in
+// the gap between two of them (gap i sits between occurrence i and i+1, so
+// there are 7 gaps: 0-6). Rules: a link's gap can't be immediately next to
+// another link's gap... actually it always isn't - two different gaps are
+// never touching since there's always at least one occurrence between them -
+// and a link's gap can't be immediately next to whichever occurrence is
+// currently the actual-title (its 1-2 bordering gaps are off limits).
+const navLinks = [
+	{ label: 'About', targetIndex: 1 },
+	{ label: 'Video', targetIndex: 2 },
+	{ label: 'Events', targetIndex: 3 },
+	{ label: 'Lyrics', targetIndex: 4 },
+];
+const ACTUAL_TITLE_STATIC_INDEX = 2;
+// Static (no-JS) fallback placement - avoids gaps 1 and 2, the two bordering
+// ACTUAL_TITLE_STATIC_INDEX. Gap 4 is left empty, same as in the original
+// example's spacing.
+const STATIC_GAP_ASSIGNMENT: Record<number, (typeof navLinks)[number]> = {
+	0: navLinks[0],
+	3: navLinks[1],
+	5: navLinks[2],
+	6: navLinks[3],
 };
-
-const contentSets = [tocSet, ...pageSets];
+const NAV_WINDOW_SIZE = 8; // occurrences 0-7, gaps 0-6
 
 // Background image layer (see the parallax script): the whole stacked track
 // slides up at this fraction of actual scroll speed.
@@ -69,13 +90,17 @@ const CONTENT_PEAK_SPACING = 1 / IMAGE_PARALLAX_FACTOR;
 // opacity between one set finishing its fade-out and the next starting its
 // fade-in, rather than them touching or overlapping.
 const CONTENT_FADE_HALF_WIDTH = 1.5;
+// Highest content-set index (4, since they're 1-4) - used for the min-height
+// formula below. Not contentSets.length, since that's now 4 while indices
+// run 1-4 rather than 0-3.
+const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 ---
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>IFMLIDNTIEH</title>
-		<style define:vars={{ contentSetCount: contentSets.length, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
+		<style define:vars={{ maxContentIndex: MAX_CONTENT_INDEX, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
 			@font-face {
 				font-family: 'Shabby';
 				src: url('/fonts/Shabby.ttf') format('truetype');
@@ -92,7 +117,7 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 				   content set's peak and let it fade back out, regardless of
 				   how tall the backdrop text happens to wrap to - if the text
 				   is taller, the page just grows to fit it instead. */
-				min-height: calc(((var(--contentSetCount) - 1) * var(--contentPeakSpacing) + var(--contentFadeHalfWidth)) * 100vh);
+				min-height: calc((var(--maxContentIndex) * var(--contentPeakSpacing) + var(--contentFadeHalfWidth)) * 100vh);
 			}
 
 			.backdrop-text p {
@@ -109,6 +134,13 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 				opacity: 0.5;
 			}
 
+			/* .nav-gap is also a span under .backdrop-text p - without this,
+			   it (and the nav-link button inside it) would inherit the
+			   dimming above, washing out the button's own styling. */
+			.backdrop-text p span.nav-gap {
+				opacity: 1;
+			}
+
 			/* The "actual title" - the one real instance of the band name
 			   amid all the decorative repetitions. Reads on its own words
 			   (not broken mid-word like the rest) and is highlighted white. */
@@ -121,6 +153,27 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 					0 0 12px rgba(0, 0, 0, 0.9),
 					0 0 28px rgba(0, 0, 0, 0.85),
 					0 0 60px rgba(0, 0, 0, 0.75);
+			}
+
+			/* Nav links, embedded among the first 8 backdrop-text occurrences
+			   (see the frontmatter/script). Styled like .actual-title - same
+			   word-break exception, same general glow - but a step down:
+			   off-white instead of pure white, lighter shadow. */
+			.backdrop-text .nav-link {
+				font: inherit;
+				text-transform: inherit;
+				word-break: normal;
+				color: #cbcbbf;
+				background: none;
+				border: none;
+				padding: 0;
+				margin: 0 0.3em;
+				cursor: pointer;
+				text-shadow:
+					0 0 3px rgba(0, 0, 0, 0.85),
+					0 0 9px rgba(0, 0, 0, 0.75),
+					0 0 18px rgba(0, 0, 0, 0.65),
+					0 0 36px rgba(0, 0, 0, 0.5);
 			}
 
 			/* No background/border of its own - just sits on whatever's
@@ -266,28 +319,6 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 				border: none;
 			}
 
-			/* The TOC doesn't live inside .content-overlay's box (bottom:5vh
-			   from the viewport) - it's pinned to the literal bottom 10vh of
-			   the viewport, a shorter strip than the other sets get. */
-			.content-set[data-layout='toc'] {
-				position: fixed;
-				inset: auto 5% 0 5%;
-				height: 10vh;
-			}
-
-			.content-set[data-layout='toc'] .content-items {
-				grid-auto-flow: column;
-				grid-template-columns: repeat(4, 1fr);
-				grid-template-rows: 1fr;
-			}
-
-			.content-set[data-layout='toc'] .content-item {
-				font-size: clamp(14px, 1.8vw, 18px);
-				padding: 8px;
-				cursor: pointer;
-				border: none;
-			}
-
 			.content-item {
 				display: flex;
 				align-items: center;
@@ -306,11 +337,18 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 		</style>
 	</head>
 	<body>
-		<div class="backdrop-text" aria-hidden="true">
+		<div class="backdrop-text">
 			<p>{repetitions.map((i) => (
 				<>
-					<span class:list={[{ 'actual-title': i === 2 }]}>{bandName}</span>
+					<span class:list={[{ 'actual-title': i === ACTUAL_TITLE_STATIC_INDEX }]} data-index={i} aria-hidden="true">{bandName}</span>
 					{i < repetitions.length - 1 && ' '}
+					{i < NAV_WINDOW_SIZE - 1 && (
+						<span class="nav-gap" data-gap={i}>
+							{STATIC_GAP_ASSIGNMENT[i] && (
+								<button type="button" class="nav-link" data-target-index={STATIC_GAP_ASSIGNMENT[i].targetIndex}>{STATIC_GAP_ASSIGNMENT[i].label}</button>
+							)}
+						</span>
+					)}
 				</>
 			))}</p>
 		</div>
@@ -337,8 +375,8 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 		</div>
 
 		<div class="content-overlay">
-			{contentSets.map((set, i) => (
-				<div class="content-set" data-index={i} data-layout={set.layout}>
+			{contentSets.map((set) => (
+				<div class="content-set" data-index={set.index} data-layout={set.layout}>
 					{set.layout === 'tattered-text' && (
 						<div class="tattered-box">
 							{set.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
@@ -357,15 +395,62 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 					{set.layout !== 'tattered-text' && set.layout !== 'video' && (
 						<div class="content-items">
 							{set.items.map((item) => (
-								set.layout === 'toc'
-									? <button type="button" class="content-item" data-target-index={item.targetIndex}>{item.text}</button>
-									: <div class="content-item">{item.text}</div>
+								<div class="content-item">{item.text}</div>
 							))}
 						</div>
 					)}
 				</div>
 			))}
 		</div>
+
+		<script>
+			// Hard-coded in the markup to index 2 (actual-title) and a fixed
+			// gap assignment (nav links), so the page reads and navigates
+			// fine with no JS. With JS, both get re-randomized on every load:
+			// the actual title moves to one of the first 7 (0-6) occurrences,
+			// and the 4 nav links move to 4 of the 7 gaps between the first 8
+			// (0-7) occurrences, avoiding whichever gap(s) now border the
+			// actual title.
+			const ACTUAL_TITLE_RANDOM_RANGE = 7; // 0-6
+			const GAP_COUNT = 7; // 0-6, between occurrences 0-7
+
+			function shuffle<T>(items: T[]): T[] {
+				const result = items.slice();
+				for (let i = result.length - 1; i > 0; i--) {
+					const j = Math.floor(Math.random() * (i + 1));
+					[result[i], result[j]] = [result[j], result[i]];
+				}
+				return result;
+			}
+
+			// Only the band-title occurrences have data-index - the nav-gap
+			// spans use data-gap instead, so this doesn't pick those up too.
+			const occurrences = Array.from(document.querySelectorAll<HTMLElement>('.backdrop-text span[data-index]'));
+			const currentActual = occurrences.find((span) => span.classList.contains('actual-title'));
+			const newActualIndex = Math.floor(Math.random() * ACTUAL_TITLE_RANDOM_RANGE);
+			const newActual = occurrences[newActualIndex];
+
+			if (currentActual && newActual && currentActual !== newActual) {
+				currentActual.classList.remove('actual-title');
+				newActual.classList.add('actual-title');
+			}
+
+			const forbiddenGaps = new Set([newActualIndex - 1, newActualIndex].filter((g) => g >= 0 && g < GAP_COUNT));
+			const allowedGaps: number[] = [];
+			for (let g = 0; g < GAP_COUNT; g++) {
+				if (!forbiddenGaps.has(g)) allowedGaps.push(g);
+			}
+
+			const navLinkButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.nav-link'));
+			navLinkButtons.forEach((button) => button.remove());
+
+			const chosenGaps = shuffle(allowedGaps).slice(0, navLinkButtons.length);
+			const shuffledButtons = shuffle(navLinkButtons);
+
+			chosenGaps.forEach((gap, i) => {
+				document.querySelector(`.nav-gap[data-gap="${gap}"]`)?.appendChild(shuffledButtons[i]);
+			});
+		</script>
 
 		<script define:vars={{ imageParallaxFactor: IMAGE_PARALLAX_FACTOR, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
 			// Parallax layers 2 and 3. One continuous scroll progress value
@@ -394,8 +479,12 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 				}
 
 				const progress = scrollY / sectionHeightPx;
-				contentSetEls.forEach((set, i) => {
-					const peak = i * contentPeakSpacing;
+				contentSetEls.forEach((set) => {
+					// Content sets are indexed 1-4 (not 0-3), so this reads
+					// each set's own data-index rather than its position in
+					// contentSetEls.
+					const index = Number(set.getAttribute('data-index'));
+					const peak = index * contentPeakSpacing;
 					const opacity = Math.max(0, 1 - Math.abs(progress - peak) / contentFadeHalfWidth);
 					set.style.opacity = String(opacity);
 					// Every set is stacked at the same position regardless of
