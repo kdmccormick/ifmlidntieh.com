@@ -31,11 +31,17 @@ function nextLorem() {
 	return text;
 }
 
+const pageOneParagraphs = [
+	'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.',
+	'Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
+	'Curabitur pretium tincidunt lacus, et facilisis vel enim nec placerat. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Praesent commodo cursus magna, vel scelerisque nisl consectetur et.',
+];
+
 // Content sets 1-4: one "page" each. Set 0 is the table of contents, added
 // below once these exist, so it can link to each one by index.
 const pageSets = [
-	{ layout: 'grid-2x2', items: Array.from({ length: 4 }, () => ({ text: nextLorem() })) },
-	{ layout: 'single', items: Array.from({ length: 1 }, () => ({ text: nextLorem() })) },
+	{ layout: 'tattered-text', paragraphs: pageOneParagraphs },
+	{ layout: 'video', youtubeId: 'dQw4w9WgXcQ', title: 'Placeholder video - swap for a real one later' },
 	{ layout: 'columns-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
 	{ layout: 'rows-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
 ];
@@ -103,20 +109,13 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 				opacity: 0.5;
 			}
 
-			/* Permanent trait of the original 3rd instance only - stays even
-			   after .active has moved on to a later instance. */
-			.backdrop-text p span.origin {
+			/* The "actual title" - the one real instance of the band name
+			   amid all the decorative repetitions. Reads on its own words
+			   (not broken mid-word like the rest) and is highlighted white. */
+			.backdrop-text p span.actual-title {
 				word-break: normal;
-			}
-
-			/* Dynamic "currently highlighted" state, moved between instances
-			   by the scroll script below. Deliberately doesn't touch
-			   word-break, so only .origin ever gets the word-break exception.
-			   Clickable - see the script below - to jump back to the top. */
-			.backdrop-text p span.active {
 				color: #fff;
 				opacity: 1;
-				cursor: pointer;
 				text-shadow:
 					0 0 4px rgba(0, 0, 0, 0.95),
 					0 0 12px rgba(0, 0, 0, 0.9),
@@ -217,6 +216,56 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 				grid-template-rows: repeat(3, 1fr);
 			}
 
+			/* Page 1: full-bleed opaque black box with readable body copy,
+			   rather than one of the big centered-text placeholder cards.
+			   The jagged border is a ::before so the SVG filter distorts
+			   only the decorative edge, not the actual paragraph text. */
+			.content-set[data-layout='tattered-text'] .tattered-box {
+				position: relative;
+				width: 100%;
+				height: 100%;
+				overflow-y: auto;
+				box-sizing: border-box;
+				padding: 6% 7%;
+				background: #000;
+				color: #fff;
+				font-family: sans-serif;
+				font-size: 1rem;
+				line-height: 1.6;
+				text-align: left;
+			}
+
+			.content-set[data-layout='tattered-text'] .tattered-box p {
+				margin: 0 0 1em;
+			}
+
+			.content-set[data-layout='tattered-text'] .tattered-box::before {
+				content: '';
+				position: absolute;
+				inset: -6px;
+				border: 3px solid #fff;
+				filter: url(#tattered-edge);
+				pointer-events: none;
+			}
+
+			/* Page 2: embedded video, capped to a sane max width and kept at
+			   16:9 regardless of the (currently square-ish) content-overlay
+			   box it sits in. */
+			.content-set[data-layout='video'] .video-box {
+				width: 100%;
+				height: 100%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.content-set[data-layout='video'] iframe {
+				width: 100%;
+				max-width: 960px;
+				aspect-ratio: 16 / 9;
+				border: none;
+			}
+
 			/* The TOC doesn't live inside .content-overlay's box (bottom:5vh
 			   from the viewport) - it's pinned to the literal bottom 10vh of
 			   the viewport, a shorter strip than the other sets get. */
@@ -235,7 +284,6 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 			.content-set[data-layout='toc'] .content-item {
 				font-size: clamp(14px, 1.8vw, 18px);
 				padding: 8px;
-				pointer-events: auto;
 				cursor: pointer;
 				border: none;
 			}
@@ -250,6 +298,10 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 				font-family: sans-serif;
 				font-size: clamp(16px, 2.4vw, 24px);
 				background-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.45) 60%, transparent 100%);
+				/* pointer-events is inherited from .content-set (see below) -
+				   not set here, since every set is stacked at the same inset:0
+				   position regardless of opacity, and only the currently-
+				   visible one should actually be selectable/clickable. */
 			}
 		</style>
 	</head>
@@ -257,7 +309,7 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 		<div class="backdrop-text" aria-hidden="true">
 			<p>{repetitions.map((i) => (
 				<>
-					<span class:list={['backdrop-span', { origin: i === 2, active: i === 0 }]} data-index={i}>{bandName}</span>
+					<span class:list={[{ 'actual-title': i === 2 }]}>{bandName}</span>
 					{i < repetitions.length - 1 && ' '}
 				</>
 			))}</p>
@@ -268,6 +320,13 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 				⚠️ PLACEHOLDER FOOTER ⚠️ — &copy; 2026 I Feel More Like I Do Now Than I Ever Have. All rights reserved (probably). Replace this with real copyright/contact/links later.
 			</p>
 		</footer>
+
+		<svg width="0" height="0" style="position: absolute;" aria-hidden="true" focusable="false">
+			<filter id="tattered-edge">
+				<feTurbulence type="fractalNoise" baseFrequency="0.012 0.06" numOctaves="2" seed="7" result="noise" />
+				<feDisplacementMap in="SourceGraphic" in2="noise" scale="10" xChannelSelector="R" yChannelSelector="G" />
+			</filter>
+		</svg>
 
 		<div class="bg-image-layer" aria-hidden="true">
 			<div class="bg-image-track">
@@ -280,68 +339,33 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 		<div class="content-overlay">
 			{contentSets.map((set, i) => (
 				<div class="content-set" data-index={i} data-layout={set.layout}>
-					<div class="content-items">
-						{set.items.map((item) => (
-							set.layout === 'toc'
-								? <button type="button" class="content-item" data-target-index={item.targetIndex}>{item.text}</button>
-								: <div class="content-item">{item.text}</div>
-						))}
-					</div>
+					{set.layout === 'tattered-text' && (
+						<div class="tattered-box">
+							{set.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
+						</div>
+					)}
+					{set.layout === 'video' && (
+						<div class="video-box">
+							<iframe
+								src={`https://www.youtube.com/embed/${set.youtubeId}`}
+								title={set.title}
+								allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+								allowfullscreen
+							/>
+						</div>
+					)}
+					{set.layout !== 'tattered-text' && set.layout !== 'video' && (
+						<div class="content-items">
+							{set.items.map((item) => (
+								set.layout === 'toc'
+									? <button type="button" class="content-item" data-target-index={item.targetIndex}>{item.text}</button>
+									: <div class="content-item">{item.text}</div>
+							))}
+						</div>
+					)}
 				</div>
 			))}
 		</div>
-
-		<script>
-			// A single symmetric rule, applied on scroll in either direction
-			// and on initial load: an instance "qualifies" to be active once
-			// its top sits at least one line-height below the viewport top
-			// (i.e. it isn't within a line-height of the edge). Active is
-			// always the earliest instance that qualifies, so the white text
-			// hands off before it ever gets close to touching the top edge.
-			// The original 3rd instance keeps its own `.origin` class
-			// (word-break: normal) permanently - this only ever moves `.active`.
-			// Estimated line-height in px, used only for the advance-buffer
-			// math below - not read from the DOM/CSS, so it can't fight with
-			// or get thrown off by the actual line-height CSS controls.
-			// Tune this directly if the buffer feels too tight or too loose.
-			const ESTIMATED_LINE_HEIGHT_PX = 50;
-
-			const spans = Array.from(document.querySelectorAll<HTMLElement>('.backdrop-span'));
-			let activeIndex = spans.findIndex((span) => span.classList.contains('active'));
-
-			function setActiveIndex(nextIndex: number) {
-				spans[activeIndex].classList.remove('active');
-				activeIndex = nextIndex;
-				spans[activeIndex].classList.add('active');
-			}
-
-			function qualifies(el: HTMLElement) {
-				return el.getBoundingClientRect().top >= ESTIMATED_LINE_HEIGHT_PX;
-			}
-
-			function updateActive() {
-				if (activeIndex < 0) return;
-
-				while (activeIndex < spans.length - 1 && !qualifies(spans[activeIndex])) {
-					setActiveIndex(activeIndex + 1);
-				}
-
-				while (activeIndex > 0 && qualifies(spans[activeIndex - 1])) {
-					setActiveIndex(activeIndex - 1);
-				}
-			}
-
-			updateActive();
-			window.addEventListener('scroll', updateActive, { passive: true });
-			window.addEventListener('resize', updateActive);
-
-			// Clicking the active (white) instance jumps back to the top.
-			document.querySelector('.backdrop-text')?.addEventListener('click', (event) => {
-				if ((event.target as HTMLElement).classList.contains('active')) {
-					window.scrollTo({ top: 0, behavior: 'smooth' });
-				}
-			});
-		</script>
 
 		<script define:vars={{ imageParallaxFactor: IMAGE_PARALLAX_FACTOR, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
 			// Parallax layers 2 and 3. One continuous scroll progress value
@@ -374,6 +398,10 @@ const CONTENT_FADE_HALF_WIDTH = 1.5;
 					const peak = i * contentPeakSpacing;
 					const opacity = Math.max(0, 1 - Math.abs(progress - peak) / contentFadeHalfWidth);
 					set.style.opacity = String(opacity);
+					// Every set is stacked at the same position regardless of
+					// opacity, so without this, an invisible set could still
+					// steal clicks/selection from the one actually on screen.
+					set.style.pointerEvents = opacity > 0 ? 'auto' : 'none';
 				});
 			}
 
