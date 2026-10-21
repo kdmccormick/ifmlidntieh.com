@@ -89,13 +89,20 @@ const CONTENT_FADE_HALF_WIDTH = CONTENT_PEAK_SPACING;
 // formula below. Not contentSets.length, since that's now 4 while indices
 // run 1-4 rather than 0-3.
 const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
+
+// The two colors used throughout the nav/title system (actual-title,
+// inline nav-links, section-nav), named once here instead of as separate
+// hex literals in every rule - swapping their roles (as happened once
+// already) is then a one-line change, not a hunt across the stylesheet.
+const COLOR_PRIMARY = '#fff';
+const COLOR_SECONDARY = '#c4ad7a';
 ---
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>IFMLIDNTIEH</title>
-		<style define:vars={{ maxContentIndex: MAX_CONTENT_INDEX, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
+		<style define:vars={{ maxContentIndex: MAX_CONTENT_INDEX, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH, colorPrimary: COLOR_PRIMARY, colorSecondary: COLOR_SECONDARY }}>
 			@font-face {
 				font-family: 'Shabby';
 				src: url('/fonts/Shabby.ttf') format('truetype');
@@ -141,10 +148,7 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 			   (not broken mid-word like the rest) and is highlighted white. */
 			.backdrop-text p span.actual-title {
 				word-break: normal;
-				/* Same gold as the nav's hover/current-section color - the
-				   actual title only ever appears on Home, so this doesn't
-				   need to be conditional on anything. */
-				color: #c4ad7a;
+				color: var(--colorPrimary);
 				opacity: 1;
 				text-shadow:
 					0 0 4px rgba(0, 0, 0, 0.95),
@@ -155,13 +159,13 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 
 			/* Nav links, embedded among the first 8 backdrop-text occurrences
 			   (see the frontmatter/script). Styled like .actual-title - same
-			   word-break exception, same general glow - but a step down:
-			   off-white instead of pure white, lighter shadow. */
+			   word-break exception, same general glow - but gold instead of
+			   white, with a lighter shadow. */
 			.backdrop-text .nav-link {
 				font: inherit;
 				text-transform: inherit;
 				word-break: normal;
-				color: #fff;
+				color: var(--colorSecondary);
 				background: none;
 				border: none;
 				padding: 0;
@@ -176,7 +180,7 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 			}
 
 			.backdrop-text .nav-link:hover {
-				color: #c4ad7a;
+				color: var(--colorPrimary);
 			}
 
 /* Full section nav, floating independently (not part of the
@@ -213,7 +217,7 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 				   be, so it tracks if that one is ever retuned. */
 				font-size: clamp(17px, 4vw, 30px);
 				word-break: normal;
-				color: #fff;
+				color: var(--colorSecondary);
 				background: none;
 				border: none;
 				padding: 0;
@@ -229,9 +233,9 @@ const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
 			.section-nav-link:hover,
 			/* Current section indicator - whichever link's section is
 			   nearest the current scroll position, ties going to the
-			   earlier one (see the script below). Same gold as hover. */
+			   earlier one (see the script below). Same as hover. */
 			.section-nav-link.is-current {
-				color: #c4ad7a;
+				color: var(--colorPrimary);
 			}
 
 			/* No background/border of its own - just sits on whatever's
