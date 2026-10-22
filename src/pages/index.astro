@@ -470,7 +470,6 @@ const COLOR_SECONDARY = '#c4ad7a';
 				padding: 6% 7%;
 				border: none;
 				font: inherit;
-				font-size: clamp(14px, 1.8vw, 20px);
 				cursor: pointer;
 				transition: color 0.2s ease;
 			}
@@ -497,20 +496,30 @@ const COLOR_SECONDARY = '#c4ad7a';
 			}
 
 			/* Dropdown stand-in for .tabs-titles on narrow viewports (see
-			   the media query below) - hidden otherwise. Explicit height:
-			   auto overrides the height: 100% it'd otherwise inherit from
-			   .tattered-box - without it, flex: 0 0 auto's "auto" basis
-			   resolves to that inherited 100% instead of the one-line
-			   content height it's meant to be. Padding is em-based (not the
-			   rest of the box's %, which is relative to width) so the
-			   control's height stays "one line + padding" regardless of
-			   how wide the dropdown ends up. */
-			.tab-select {
+			   the media query below) - hidden otherwise. A native <select>
+			   doesn't reliably render ::before/::after (it's a replaced
+			   element in most browsers), so the tattered-box edge goes on
+			   this wrapper instead, with the <select> itself just filling
+			   it. Explicit height: auto overrides the height: 100% it'd
+			   otherwise inherit from .tattered-box - without it, flex: 0 0
+			   auto's "auto" basis resolves to that inherited 100% instead
+			   of the one-line content height it's meant to be. Padding is
+			   em-based (not the rest of the box's %, which is relative to
+			   width) so the control's height stays "one line + padding"
+			   regardless of how wide the dropdown ends up. */
+			.tab-select-wrapper {
 				display: none;
 				width: 100%;
 				height: auto;
 				padding: 0.5em 0.8em;
+			}
+
+			.tab-select {
+				display: block;
+				width: 100%;
 				border: none;
+				background: none;
+				color: inherit;
 				font: inherit;
 				cursor: pointer;
 			}
@@ -528,7 +537,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 					display: none;
 				}
 
-				.tab-select {
+				.tab-select-wrapper {
 					display: block;
 					flex: 0 0 auto;
 				}
@@ -611,11 +620,13 @@ const COLOR_SECONDARY = '#c4ad7a';
 									</button>
 								))}
 							</div>
-							<select class="tattered-box tab-select" aria-label={set.selectAriaLabel}>
-								{set.items.map((item, i) => (
-									<option value={i} selected={i === 0}>{item.title}</option>
-								))}
-							</select>
+							<div class="tattered-box tab-select-wrapper">
+								<select class="tab-select" aria-label={set.selectAriaLabel}>
+									{set.items.map((item, i) => (
+										<option value={i} selected={i === 0}>{item.title}</option>
+									))}
+								</select>
+							</div>
 							<div class="tattered-box tabs-display">
 								<div class="tattered-box-scroll">
 									{set.items.map((item, i) => (
