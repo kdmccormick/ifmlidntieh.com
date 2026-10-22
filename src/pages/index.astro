@@ -53,12 +53,19 @@ const poemsData = await Promise.all(
 	}),
 );
 
+// Plain in-page data (not its own markdown collection, unlike the poems/
+// about above) - just a title plus a couple of lorem paragraphs each.
+const eventsData = ['Summer 2026', 'Autumn 2026', 'Winter 2027'].map((title) => ({
+	title,
+	paragraphs: [nextLorem(), nextLorem()],
+}));
+
 // Content sets, one "page" each - index matches the background image order
 // above (Home=0 has no page/link; Video=1, Events=2, Poems=3, About=4).
 const pageSets = [
 	{ label: 'Video', index: 1, layout: 'video', youtubeId: 'T6JFTmQCFHg', title: "They're Made Out of Meat" },
-	{ label: 'Events', index: 2, layout: 'columns-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
-	{ label: 'Poems', index: 3, layout: 'poems', poems: poemsData },
+	{ label: 'Events', index: 2, layout: 'tabs', selectAriaLabel: 'Select an event', items: eventsData },
+	{ label: 'Poems', index: 3, layout: 'tabs', selectAriaLabel: 'Select a poem', items: poemsData },
 	{ label: 'About', index: 4, layout: 'tattered-text', Content: AboutContent },
 ];
 const contentSets = pageSets;
@@ -339,43 +346,11 @@ const COLOR_SECONDARY = '#c4ad7a';
 				opacity: 0;
 			}
 
-			.content-items {
-				width: 100%;
-				height: 100%;
-				display: grid;
-				gap: 4%;
-			}
-
-			.content-set[data-layout='grid-2x2'] .content-items {
-				grid-template-columns: repeat(2, 1fr);
-				grid-template-rows: repeat(2, 1fr);
-			}
-
-			.content-set[data-layout='single'] .content-items {
-				grid-template-columns: 1fr;
-				grid-template-rows: 1fr;
-			}
-
-			.content-set[data-layout='single'] .content-item {
-				width: 70%;
-				height: 70%;
-				margin: auto;
-			}
-
-			.content-set[data-layout='columns-3'] .content-items {
-				grid-template-columns: repeat(3, 1fr);
-				grid-template-rows: 1fr;
-			}
-
-			.content-set[data-layout='rows-3'] .content-items {
-				grid-template-columns: 1fr;
-				grid-template-rows: repeat(3, 1fr);
-			}
-
 			/* Full-bleed opaque black box with readable body copy, shared by
-			   the About page, the Poems page's title rectangles, and its
-			   selected-poem display box - rather than one of the big
-			   centered-text placeholder cards. The jagged border is a
+			   the About page and the tabs layout (Poems, Events) - both its
+			   title rectangles and its selected-item display box - rather
+			   than one of the big centered-text placeholder cards. The
+			   jagged border is a
 			   ::before so the SVG filter distorts only the decorative edge,
 			   not the actual text. The box itself stays overflow:visible so
 			   that ::before's negative inset (it bleeds outside the box)
@@ -397,7 +372,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 			   each poem) is now markdown rendered via a separate Content
 			   component, so its <p> tags never carry this component's own
 			   scoped data-astro-cid attribute and a plain scoped selector
-			   would silently never match them (see the poem-body rules
+			   would silently never match them (see the tab-body rules
 			   below for the same situation). */
 			.tattered-box :global(p) {
 				margin: 0 0 1em;
@@ -420,11 +395,11 @@ const COLOR_SECONDARY = '#c4ad7a';
 				padding: 6% 7%;
 			}
 
-			.tattered-box .poem-body {
+			.tattered-box .tab-body {
 				display: none;
 			}
 
-			.tattered-box .poem-body.is-active {
+			.tattered-box .tab-body.is-active {
 				display: block;
 			}
 
@@ -432,41 +407,42 @@ const COLOR_SECONDARY = '#c4ad7a';
 			   they're rendered by the poem's own Content component, not
 			   this one, so they never receive this component's scoped
 			   data-astro-cid attribute and a plain scoped selector would
-			   silently never match them. .poem-body itself stays scoped,
+			   silently never match them. .tab-body itself stays scoped,
 			   since that wrapper div IS part of this component's markup. */
 
 			/* Inline code only - scoped to p so it doesn't also paint a
 			   translucent background behind every line of a fenced code
 			   block, which already gets its own background from Shiki. */
-			.tattered-box .poem-body :global(p code) {
+			.tattered-box .tab-body :global(p code) {
 				background: rgba(255, 255, 255, 0.12);
 				padding: 0.1em 0.3em;
 				border-radius: 3px;
 			}
 
-			.tattered-box .poem-body :global(pre) {
+			.tattered-box .tab-body :global(pre) {
 				padding: 0.75em 1em;
 				border-radius: 4px;
 				overflow-x: auto;
 			}
 
-			.tattered-box .poem-body :global(a) {
+			.tattered-box .tab-body :global(a) {
 				color: var(--colorSecondary);
 			}
 
-			/* Poems page: a stack of small tattered-box title rectangles on
-			   the left (click to select), and one tattered-box on the right
-			   showing the selected poem's body text - each box gets its own
-			   independent tattered edge via its own ::before, no internal
-			   dividers between them, just a gap. */
-			.poems-layout {
+			/* Tabs layout (Poems, Events): a stack of small tattered-box
+			   title rectangles on the left (click to select), and one
+			   tattered-box on the right showing the selected item's
+			   content - each box gets its own independent tattered edge
+			   via its own ::before, no internal dividers between them,
+			   just a gap. */
+			.tabs-layout {
 				display: flex;
 				width: 100%;
 				height: 100%;
 				gap: 4%;
 			}
 
-			.poems-titles {
+			.tabs-titles {
 				display: flex;
 				flex-direction: column;
 				justify-content: space-between;
@@ -475,7 +451,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 				height: 100%;
 			}
 
-			.poem-title-box {
+			.tab-title-box {
 				flex: 0 0 20%;
 				display: flex;
 				align-items: center;
@@ -489,12 +465,12 @@ const COLOR_SECONDARY = '#c4ad7a';
 				transition: color 0.2s ease;
 			}
 
-			.poem-title-box:hover,
-			.poem-title-box.is-selected {
+			.tab-title-box:hover,
+			.tab-title-box.is-selected {
 				color: var(--colorSecondary);
 			}
 
-			.poems-display {
+			.tabs-display {
 				flex: 1;
 				/* Flex items default to min-height: auto on the main axis,
 				   which refuses to shrink below content size - in the
@@ -506,7 +482,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 				height: 100%;
 			}
 
-			/* Dropdown stand-in for .poems-titles on narrow viewports (see
+			/* Dropdown stand-in for .tabs-titles on narrow viewports (see
 			   the media query below) - hidden otherwise. Explicit height:
 			   auto overrides the height: 100% it'd otherwise inherit from
 			   .tattered-box - without it, flex: 0 0 auto's "auto" basis
@@ -515,7 +491,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 			   rest of the box's %, which is relative to width) so the
 			   control's height stays "one line + padding" regardless of
 			   how wide the dropdown ends up. */
-			.poem-select {
+			.tab-select {
 				display: none;
 				width: 100%;
 				height: auto;
@@ -526,19 +502,19 @@ const COLOR_SECONDARY = '#c4ad7a';
 			}
 
 			/* Too narrow for two columns (e.g. mobile) - stack into one
-			   column instead: the title picker collapses from four
-			   rectangles into a single dropdown, with the poem contents
-			   below it. */
+			   column instead: the title picker collapses from a stack of
+			   rectangles into a single dropdown, with the selected item's
+			   contents below it. */
 			@media (max-width: 700px) {
-				.poems-layout {
+				.tabs-layout {
 					flex-direction: column;
 				}
 
-				.poems-titles {
+				.tabs-titles {
 					display: none;
 				}
 
-				.poem-select {
+				.tab-select {
 					display: block;
 					flex: 0 0 auto;
 				}
@@ -562,20 +538,6 @@ const COLOR_SECONDARY = '#c4ad7a';
 				border: none;
 			}
 
-			.content-item {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				text-align: center;
-				padding: 24px;
-				color: #fff;
-				font-size: clamp(16px, 2.4vw, 24px);
-				background-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.45) 60%, transparent 100%);
-				/* pointer-events is inherited from .content-set (see below) -
-				   not set here, since every set is stacked at the same inset:0
-				   position regardless of opacity, and only the currently-
-				   visible one should actually be selectable/clickable. */
-			}
 		</style>
 	</head>
 	<body>
@@ -626,26 +588,28 @@ const COLOR_SECONDARY = '#c4ad7a';
 							</div>
 						</div>
 					)}
-					{set.layout === 'poems' && (
-						<div class="poems-layout">
-							<div class="poems-titles">
-								{set.poems.map((poem, i) => (
-									<button type="button" class:list={['tattered-box', 'poem-title-box', { 'is-selected': i === 0 }]} data-poem-index={i}>
-										{poem.title}
+					{set.layout === 'tabs' && (
+						<div class="tabs-layout">
+							<div class="tabs-titles">
+								{set.items.map((item, i) => (
+									<button type="button" class:list={['tattered-box', 'tab-title-box', { 'is-selected': i === 0 }]} data-tab-index={i}>
+										{item.title}
 									</button>
 								))}
 							</div>
-							<select class="tattered-box poem-select" aria-label="Select a poem">
-								{set.poems.map((poem, i) => (
-									<option value={i} selected={i === 0}>{poem.title}</option>
+							<select class="tattered-box tab-select" aria-label={set.selectAriaLabel}>
+								{set.items.map((item, i) => (
+									<option value={i} selected={i === 0}>{item.title}</option>
 								))}
 							</select>
-							<div class="tattered-box poems-display">
+							<div class="tattered-box tabs-display">
 								<div class="tattered-box-scroll">
-									{set.poems.map((poem, i) => (
-										<div class:list={['poem-body', { 'is-active': i === 0 }]} data-poem-index={i}>
-										<poem.Content />
-									</div>
+									{set.items.map((item, i) => (
+										<div class:list={['tab-body', { 'is-active': i === 0 }]} data-tab-index={i}>
+											{/* Poems' items come from markdown (a Content
+											   component); Events' are plain lorem paragraphs. */}
+											{item.Content ? <item.Content /> : item.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
+										</div>
 									))}
 								</div>
 							</div>
@@ -659,13 +623,6 @@ const COLOR_SECONDARY = '#c4ad7a';
 								allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
 								allowfullscreen
 							/>
-						</div>
-					)}
-					{set.layout !== 'tattered-text' && set.layout !== 'poems' && set.layout !== 'video' && (
-						<div class="content-items">
-							{set.items.map((item) => (
-								<div class="content-item">{item.text}</div>
-							))}
 						</div>
 					)}
 				</div>
@@ -727,28 +684,28 @@ const COLOR_SECONDARY = '#c4ad7a';
 				document.querySelector(`.nav-gap[data-gap="${gap}"]`)?.appendChild(shuffledButtons[i]);
 			});
 
-			// Poems page: picking a poem - via a title rectangle (wide
-			// viewports) or the dropdown that replaces them (narrow
-			// viewports, see the media query above) - swaps which poem's
-			// body text is shown in the display box, and keeps whichever
-			// picker is currently hidden in sync too, so switching viewport
-			// width mid-visit doesn't leave it stale.
-			const poemTitleButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.poem-title-box'));
-			const poemSelect = document.querySelector<HTMLSelectElement>('.poem-select');
+			// Tabs layout (Poems, Events): picking an item - via a title
+			// rectangle (wide viewports) or the dropdown that replaces them
+			// (narrow viewports, see the media query above) - swaps which
+			// item's content is shown in the display box, and keeps
+			// whichever picker is currently hidden in sync too, so
+			// switching viewport width mid-visit doesn't leave it stale.
+			const tabTitleButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.tab-title-box'));
+			const tabSelect = document.querySelector<HTMLSelectElement>('.tab-select');
 
-			function selectPoem(index: string) {
-				poemTitleButtons.forEach((b) => b.classList.toggle('is-selected', b.getAttribute('data-poem-index') === index));
-				document.querySelectorAll('.poem-body').forEach((body) => {
-					body.classList.toggle('is-active', body.getAttribute('data-poem-index') === index);
+			function selectTab(index: string) {
+				tabTitleButtons.forEach((b) => b.classList.toggle('is-selected', b.getAttribute('data-tab-index') === index));
+				document.querySelectorAll('.tab-body').forEach((body) => {
+					body.classList.toggle('is-active', body.getAttribute('data-tab-index') === index);
 				});
-				if (poemSelect) poemSelect.value = index;
+				if (tabSelect) tabSelect.value = index;
 			}
 
-			poemTitleButtons.forEach((button) => {
-				button.addEventListener('click', () => selectPoem(button.getAttribute('data-poem-index') ?? '0'));
+			tabTitleButtons.forEach((button) => {
+				button.addEventListener('click', () => selectTab(button.getAttribute('data-tab-index') ?? '0'));
 			});
 
-			poemSelect?.addEventListener('change', () => selectPoem(poemSelect.value));
+			tabSelect?.addEventListener('change', () => selectTab(tabSelect.value));
 		</script>
 
 		<script define:vars={{ imageParallaxFactor: IMAGE_PARALLAX_FACTOR, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
