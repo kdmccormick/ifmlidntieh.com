@@ -2,6 +2,20 @@
 title: Guess
 order: 2
 ---
+Thinking slips I spill it onto the time
+Birds keep talking in bird talk
+How many forms of life before I give out?
+Trace the vasculature of our discontents—how long?
+Try not to stand them in for something else
+Technology spells death in technicolor
+
+I'm losing my grip and unable to refer
+Not even sure of what I would do with referring
+Throwing words at the screen
+Abating at the abattoir
+The end of all conceits
+I guess
+
 Writing poetry as a means of avoiding the ground
 Good luck grounding poetry in the air
 Free floating mechanics loose of any contact

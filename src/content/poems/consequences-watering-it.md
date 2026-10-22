@@ -19,7 +19,7 @@ You watered it too much
 A natural consequence
 There are always consequences
 
-I'm stepping on the virus I watered too much [kyle clicky]
+I'm stepping on the virus I watered too much
 I'm not saying I shouldn't have watered it
 Given how this breeze hits
 On the first warm day of the year
@@ -34,16 +34,4 @@ Yes infinite font, infinite thirst
 Ceaseless and dry
 But you watered it too much
 There are always consequences
-Guess
-Thinking slips I spill it onto the time
-Birds keep talking in bird talk
-How many forms of life before I give out?
-Trace the vasculature of our discontents—how long?
-Try not to stand them in for something else
-Technology spells death in technicolor
 
-I'm losing my grip and unable to refer
-Not even sure of what I would do with referring
-Throwing words at the screen
-Abating at the abattoir
-The end of all conceits
