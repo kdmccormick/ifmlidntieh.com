@@ -1,4 +1,6 @@
 ---
+import { getCollection, render } from 'astro:content';
+
 const bandName = 'I Feel More Like I Do Now Than I Ever Have';
 const repetitions = Array.from({ length: 400 }, (_, i) => i);
 
@@ -38,129 +40,18 @@ const pageOneParagraphs = [
 	'Curabitur pretium tincidunt lacus, et facilisis vel enim nec placerat. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Praesent commodo cursus magna, vel scelerisque nisl consectetur et.',
 ];
 
-const poemsData = [
-	{
-		title: 'Consequences (Watering It)',
-		body: `I never called it wrong to water it
-I called out to the infinite font
-The way the breeze hits
-The first warm day of the year
-Slow, slow
-Slow
-Trouble not yourself over the cause of my shiver and spit
-It troubles you
-Didn't water it enough
-I couldn't even tell what it was
-Or if I even wanted water in the first place
-My thirst is infinite
-Something inside and ceaselessly dry
-You watered it too much
-A natural consequence
-There are always consequences
-
-I'm stepping on the virus I watered too much [kyle clicky]
-I'm not saying I shouldn't have watered it
-Given how this breeze hits
-On the first warm day of the year
-And it all filters back into place
-(A little faster now)
-(A little faster)
-Does it still trouble you?
-Is it multiplying in and dividing you?
-Water gives it a place to breathe
-Did I mention wanting water at all?
-Yes infinite font, infinite thirst
-Ceaseless and dry
-But you watered it too much
-There are always consequences
-Guess
-Thinking slips I spill it onto the time
-Birds keep talking in bird talk
-How many forms of life before I give out?
-Trace the vasculature of our discontents—how long?
-Try not to stand them in for something else
-Technology spells death in technicolor
-
-I'm losing my grip and unable to refer
-Not even sure of what I would do with referring
-Throwing words at the screen
-Abating at the abattoir
-The end of all conceits`,
-	},
-	{
-		title: 'Guess',
-		body: `Writing poetry as a means of avoiding the ground
-Good luck grounding poetry in the air
-Free floating mechanics loose of any contact
-Churning through the bloodways
-How to jump and touch sky
-Way the hunger creeps in
-Cutting loose or tying into the universal network of aches, pains, and sunny afternoons with nothing to do
-
-Replacing weed with alcohol: downgrade
-Replacing alcohol with religion: category mistake
-Replacing the great chasm of loneliness with "somebody please hold me:" equilibrium out loud
-
-My lithium level taken by a waving needle
-Vasculature and discontents I wasn't kidding
-Enough stability to make you cut your dreams off
-Together on the ground again
-Leaving ground brings you down harder than would've been
-
-What now? Give up on an airborne existence?
-Make a decent living and then what?
-Which version of this is it?
-I can barely decide what to have for dinner and I am throwing word salad at the only life I will ever have
-Wave the needle and ride the anguish over air?
-Still wind with bloodflow and concrete?
-
-I guess`,
-	},
-	{
-		title: 'Leaving of the Vine',
-		body: `Words lodge in the corners of my skull
-Cool evening asks if we're there yet
-I'm tilling my dreams again
-Fallow for so long
-Something provisional seeps in the groundwater
-Night air toward quiet
-Ambiguity in the realness of when
-Night earns a lifetime appointment
-Droning on forever in as many years
-
-Yet the day is but a single eye and
-I dreamed I was rolling one off into the sunset
-Never to be seen again
-You old cowboy,
-Tumbleweed doesn't smoke to keep you warm
-And warmth lingering smokes you
-As the tumbleweed rolls over your night
-I forget to drink water these days
-Desert forgets what forest remembers
-Only one meets the night with silence
-The other sings over eternal harmony
-When will you realize?
-
-You are watched all over by the stars
-On this clear and sleepless night
-
-You are watched all over by the stars
-On this clear and sleepless night`,
-	},
-	{
-		title: 'Solidarity',
-		body: `TBD TBD TBD
-TBD TBD TBD
-TBD TBD TBD
-TBD TBD TBD
-TBD TBD TBD
-TBD TBD TBD
-TBD TBD TBD
-TBD TBD TBD
-TBD TBD TBD
-TBD TBD TBD`,
-	},
-];
+// Each poem is its own markdown file under src/content/poems (see
+// content.config.ts) - title and display order come from frontmatter,
+// body is rendered markdown (remark-breaks, configured in astro.config.mjs,
+// turns the poems' single newlines into <br>s instead of CommonMark's
+// default of collapsing them into one run-on line).
+const poemEntries = (await getCollection('poems')).sort((a, b) => a.data.order - b.data.order);
+const poemsData = await Promise.all(
+	poemEntries.map(async (entry) => {
+		const { Content } = await render(entry);
+		return { title: entry.data.title, Content };
+	}),
+);
 
 // Content sets, one "page" each - index matches the background image order
 // above (Home=0 has no page/link; Video=1, Events=2, Poems=3, About=4).
@@ -524,13 +415,37 @@ const COLOR_SECONDARY = '#c4ad7a';
 			}
 
 			.tattered-box .poem-body {
-				margin: 0;
-				white-space: pre-line;
 				display: none;
 			}
 
 			.tattered-box .poem-body.is-active {
 				display: block;
+			}
+
+			/* :global() on the markdown-generated tags (p/code/pre/a) -
+			   they're rendered by the poem's own Content component, not
+			   this one, so they never receive this component's scoped
+			   data-astro-cid attribute and a plain scoped selector would
+			   silently never match them. .poem-body itself stays scoped,
+			   since that wrapper div IS part of this component's markup. */
+
+			/* Inline code only - scoped to p so it doesn't also paint a
+			   translucent background behind every line of a fenced code
+			   block, which already gets its own background from Shiki. */
+			.tattered-box .poem-body :global(p code) {
+				background: rgba(255, 255, 255, 0.12);
+				padding: 0.1em 0.3em;
+				border-radius: 3px;
+			}
+
+			.tattered-box .poem-body :global(pre) {
+				padding: 0.75em 1em;
+				border-radius: 4px;
+				overflow-x: auto;
+			}
+
+			.tattered-box .poem-body :global(a) {
+				color: var(--colorSecondary);
 			}
 
 			/* Poems page: a stack of small tattered-box title rectangles on
@@ -722,7 +637,9 @@ const COLOR_SECONDARY = '#c4ad7a';
 							<div class="tattered-box poems-display">
 								<div class="tattered-box-scroll">
 									{set.poems.map((poem, i) => (
-										<p class:list={['poem-body', { 'is-active': i === 0 }]} data-poem-index={i}>{poem.body}</p>
+										<div class:list={['poem-body', { 'is-active': i === 0 }]} data-poem-index={i}>
+										<poem.Content />
+									</div>
 									))}
 								</div>
 							</div>
