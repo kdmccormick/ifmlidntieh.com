@@ -713,22 +713,31 @@ const COLOR_SECONDARY = '#c4ad7a';
 			// item's content is shown in the display box, and keeps
 			// whichever picker is currently hidden in sync too, so
 			// switching viewport width mid-visit doesn't leave it stale.
-			const tabTitleButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.tab-title-box'));
-			const tabSelect = document.querySelector<HTMLSelectElement>('.tab-select');
+			// Scoped per .tabs-layout instance - there's one of these per
+			// page (Poems, Events), and matching by class name alone
+			// (instead of querying within each instance) would both only
+			// ever wire up the first dropdown found in the whole document
+			// and cross-apply title-button clicks in one tabs layout to
+			// the other's same-index item.
+			document.querySelectorAll<HTMLElement>('.tabs-layout').forEach((layout) => {
+				const titleButtons = Array.from(layout.querySelectorAll<HTMLButtonElement>('.tab-title-box'));
+				const select = layout.querySelector<HTMLSelectElement>('.tab-select');
+				const bodies = Array.from(layout.querySelectorAll<HTMLElement>('.tab-body'));
 
-			function selectTab(index: string) {
-				tabTitleButtons.forEach((b) => b.classList.toggle('is-selected', b.getAttribute('data-tab-index') === index));
-				document.querySelectorAll('.tab-body').forEach((body) => {
-					body.classList.toggle('is-active', body.getAttribute('data-tab-index') === index);
+				function selectTab(index: string) {
+					titleButtons.forEach((b) => b.classList.toggle('is-selected', b.getAttribute('data-tab-index') === index));
+					bodies.forEach((body) => {
+						body.classList.toggle('is-active', body.getAttribute('data-tab-index') === index);
+					});
+					if (select) select.value = index;
+				}
+
+				titleButtons.forEach((button) => {
+					button.addEventListener('click', () => selectTab(button.getAttribute('data-tab-index') ?? '0'));
 				});
-				if (tabSelect) tabSelect.value = index;
-			}
 
-			tabTitleButtons.forEach((button) => {
-				button.addEventListener('click', () => selectTab(button.getAttribute('data-tab-index') ?? '0'));
+				select?.addEventListener('change', () => selectTab(select.value));
 			});
-
-			tabSelect?.addEventListener('change', () => selectTab(tabSelect.value));
 		</script>
 
 		<script define:vars={{ imageParallaxFactor: IMAGE_PARALLAX_FACTOR, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
