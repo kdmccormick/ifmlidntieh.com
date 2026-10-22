@@ -34,11 +34,11 @@ function nextLorem() {
 	return text;
 }
 
-const pageOneParagraphs = [
-	'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.',
-	'Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
-	'Curabitur pretium tincidunt lacus, et facilisis vel enim nec placerat. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Praesent commodo cursus magna, vel scelerisque nisl consectetur et.',
-];
+// Single markdown file under src/content/about (see content.config.ts) -
+// same rendering mechanism as the poems below, just one entry instead of a
+// sorted collection of them.
+const aboutEntry = (await getCollection('about'))[0];
+const { Content: AboutContent } = await render(aboutEntry);
 
 // Each poem is its own markdown file under src/content/poems (see
 // content.config.ts) - title and display order come from frontmatter,
@@ -59,7 +59,7 @@ const pageSets = [
 	{ label: 'Video', index: 1, layout: 'video', youtubeId: 'T6JFTmQCFHg', title: "They're Made Out of Meat" },
 	{ label: 'Events', index: 2, layout: 'columns-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
 	{ label: 'Poems', index: 3, layout: 'poems', poems: poemsData },
-	{ label: 'About', index: 4, layout: 'tattered-text', paragraphs: pageOneParagraphs },
+	{ label: 'About', index: 4, layout: 'tattered-text', Content: AboutContent },
 ];
 const contentSets = pageSets;
 
@@ -393,7 +393,13 @@ const COLOR_SECONDARY = '#c4ad7a';
 				text-align: left;
 			}
 
-			.tattered-box p {
+			/* :global() - every .tattered-box's actual text content (About,
+			   each poem) is now markdown rendered via a separate Content
+			   component, so its <p> tags never carry this component's own
+			   scoped data-astro-cid attribute and a plain scoped selector
+			   would silently never match them (see the poem-body rules
+			   below for the same situation). */
+			.tattered-box :global(p) {
 				margin: 0 0 1em;
 			}
 
@@ -616,7 +622,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 					{set.layout === 'tattered-text' && (
 						<div class="tattered-box">
 							<div class="tattered-box-scroll">
-								{set.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
+								<set.Content />
 							</div>
 						</div>
 					)}

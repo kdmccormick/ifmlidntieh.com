@@ -11,4 +11,10 @@ const poems = defineCollection({
 	}),
 });
 
-export const collections = { poems };
+// Single-entry collection - just the About page's body copy, no frontmatter
+// fields needed since there's nothing to title/order/select among.
+const about = defineCollection({
+	loader: glob({ pattern: '**/*.md', base: './src/content/about' }),
+});
+
+export const collections = { poems, about };
