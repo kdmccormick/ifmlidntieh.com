@@ -107,10 +107,19 @@ const CONTENT_PEAK_SPACING = 1 / IMAGE_PARALLAX_FACTOR;
 // and two adjacent sections are each at 50% at the midpoint between them -
 // a continuous crossfade, not a fade-out/pause/fade-in.
 const CONTENT_FADE_HALF_WIDTH = CONTENT_PEAK_SPACING;
-// Highest content-set index (4, since they're 1-4) - used for the min-height
-// formula below. Not contentSets.length, since that's now 4 while indices
+// Highest content-set index (4, since they're 1-4) - used for the scroll
+// length below. Not contentSets.length, since that's now 4 while indices
 // run 1-4 rather than 0-3.
 const MAX_CONTENT_INDEX = Math.max(...contentSets.map((set) => set.index));
+// Total scroll length, in viewport-heights: the last content set's peak,
+// plus exactly one more viewport. That "+1" isn't padding - it's the
+// minimum a page can be taller than a scroll position for that position to
+// be reachable at all (max scrollY is documentHeight - viewportHeight), so
+// without it the browser's native scroll limit would land one viewport
+// short of the peak and About could never actually reach full opacity. The
+// page's actual bottom (see .backdrop-text below) IS this length, so it
+// doubles as "the page can't be scrolled past About fully arriving."
+const TOTAL_SCROLL_VIEWPORTS = MAX_CONTENT_INDEX * CONTENT_PEAK_SPACING + 1;
 
 // The two colors used throughout the nav/title system (actual-title,
 // inline nav-links, section-nav), named once here instead of as separate
@@ -127,7 +136,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link href="https://fonts.googleapis.com/css2?family=Cormorant&display=swap" rel="stylesheet" />
-		<style define:vars={{ maxContentIndex: MAX_CONTENT_INDEX, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH, colorPrimary: COLOR_PRIMARY, colorSecondary: COLOR_SECONDARY }}>
+		<style define:vars={{ totalScrollViewports: TOTAL_SCROLL_VIEWPORTS, colorPrimary: COLOR_PRIMARY, colorSecondary: COLOR_SECONDARY }}>
 			@font-face {
 				font-family: 'Shabby';
 				src: url('/fonts/Shabby.ttf') format('truetype');
@@ -147,12 +156,20 @@ const COLOR_SECONDARY = '#c4ad7a';
 				font-size: 20px;
 			}
 
-			body {
-				/* Total scroll length is at least enough to reach the last
-				   content set's peak and let it fade back out, regardless of
-				   how tall the backdrop text happens to wrap to - if the text
-				   is taller, the page just grows to fit it instead. */
-				min-height: calc((var(--maxContentIndex) * var(--contentPeakSpacing) + var(--contentFadeHalfWidth)) * 100vh);
+			/* This - not a min-height on body - is what sets the total
+			   scroll length (see TOTAL_SCROLL_VIEWPORTS above for why it's
+			   peak + 1, not just peak). A fixed height (rather than sizing
+			   to the wrapped text's natural height, which varies with
+			   viewport width) plus overflow: hidden clips any excess
+			   repetitions instead of letting them stretch the page past
+			   this point - without it, the page would scroll however far
+			   past About as the text happens to wrap to, instead of
+			   stopping right where it's fully arrived. backdrop-text is
+			   the last thing in body now (no footer after it), so this is
+			   also the page's actual total height. */
+			.backdrop-text {
+				height: calc(var(--totalScrollViewports) * 100vh);
+				overflow: hidden;
 			}
 
 			.backdrop-text p {
@@ -285,19 +302,6 @@ const COLOR_SECONDARY = '#c4ad7a';
 				.section-nav-link {
 					font-size: clamp(10px, 3.2vw, 17px);
 				}
-			}
-
-			/* No background/border of its own - just sits on whatever's
-			   behind it (the page background color, once scrolled past the
-			   last background image), so running off the last image reads
-			   as "we've reached the footer," not "we ran out of images." */
-			.site-footer {
-				position: relative;
-				z-index: 1;
-				padding: 24px 16px;
-				color: #ff0;
-				font-size: 14px;
-				text-align: center;
 			}
 
 			/* Layer 2: background images, stacked one per section, pinned to
@@ -579,12 +583,6 @@ const COLOR_SECONDARY = '#c4ad7a';
 				</>
 			))}</p>
 		</div>
-
-		<footer class="site-footer">
-			<p>
-				⚠️ PLACEHOLDER FOOTER ⚠️ — &copy; 2026 I Feel More Like I Do Now Than I Ever Have. All rights reserved (probably). Replace this with real copyright/contact/links later.
-			</p>
-		</footer>
 
 		<svg width="0" height="0" style="position: absolute;" aria-hidden="true" focusable="false">
 			<filter id="tattered-edge">
