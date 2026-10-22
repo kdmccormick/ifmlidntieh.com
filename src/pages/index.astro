@@ -165,7 +165,7 @@ TBD TBD TBD`,
 // Content sets, one "page" each - index matches the background image order
 // above (Home=0 has no page/link; Video=1, Events=2, Poems=3, About=4).
 const pageSets = [
-	{ label: 'Video', index: 1, layout: 'video', youtubeId: 'dQw4w9WgXcQ', title: 'Placeholder video - swap for a real one later' },
+	{ label: 'Video', index: 1, layout: 'video', youtubeId: 'T6JFTmQCFHg', title: "They're Made Out of Meat" },
 	{ label: 'Events', index: 2, layout: 'columns-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
 	{ label: 'Poems', index: 3, layout: 'poems', poems: poemsData },
 	{ label: 'About', index: 4, layout: 'tattered-text', paragraphs: pageOneParagraphs },
@@ -373,6 +373,22 @@ const COLOR_SECONDARY = '#c4ad7a';
 				color: var(--colorPrimary);
 			}
 
+			/* Five labels in one row no longer fit at the desktop sizing
+			   once the viewport gets this narrow - continues the same
+			   clamp down to a lower floor (17px, the desktop floor,
+			   matches right at the 700px boundary, so there's no jump)
+			   and tightens the gap to match, rather than wrapping or
+			   letting it run off the sides. */
+			@media (max-width: 700px) {
+				.section-nav {
+					gap: 0.6em;
+				}
+
+				.section-nav-link {
+					font-size: clamp(10px, 3.2vw, 17px);
+				}
+			}
+
 			/* No background/border of its own - just sits on whatever's
 			   behind it (the page background color, once scrolled past the
 			   last background image), so running off the last image reads
@@ -418,11 +434,10 @@ const COLOR_SECONDARY = '#c4ad7a';
 			   progress through each section. */
 			.content-overlay {
 				position: fixed;
-				/* vmin, not vh/%, so the margin reads as equal on every side
-				   regardless of viewport aspect ratio - except the bottom
-				   and right, padded out further to stay clear of the
-				   floating Home link in that corner. */
-				inset: 5vmin calc(5vmin + 20px) calc(5vmin + 60px) 5vmin;
+				/* vmin, not vh/%, so the margin reads as equal on every
+				   side - except the bottom, padded out further to stay
+				   clear of the floating section-nav bar. */
+				inset: 5vmin 5vmin calc(5vmin + 90px) 5vmin;
 				z-index: 2;
 				pointer-events: none;
 			}
@@ -560,7 +575,52 @@ const COLOR_SECONDARY = '#c4ad7a';
 
 			.poems-display {
 				flex: 1;
+				/* Flex items default to min-height: auto on the main axis,
+				   which refuses to shrink below content size - in the
+				   narrow-viewport column layout below, that silently
+				   defeats .tattered-box-scroll's overflow-y: auto, growing
+				   this box to fit all the poem text instead of clipping/
+				   scrolling it within the available space. */
+				min-height: 0;
 				height: 100%;
+			}
+
+			/* Dropdown stand-in for .poems-titles on narrow viewports (see
+			   the media query below) - hidden otherwise. Explicit height:
+			   auto overrides the height: 100% it'd otherwise inherit from
+			   .tattered-box - without it, flex: 0 0 auto's "auto" basis
+			   resolves to that inherited 100% instead of the one-line
+			   content height it's meant to be. Padding is em-based (not the
+			   rest of the box's %, which is relative to width) so the
+			   control's height stays "one line + padding" regardless of
+			   how wide the dropdown ends up. */
+			.poem-select {
+				display: none;
+				width: 100%;
+				height: auto;
+				padding: 0.5em 0.8em;
+				border: none;
+				font: inherit;
+				cursor: pointer;
+			}
+
+			/* Too narrow for two columns (e.g. mobile) - stack into one
+			   column instead: the title picker collapses from four
+			   rectangles into a single dropdown, with the poem contents
+			   below it. */
+			@media (max-width: 700px) {
+				.poems-layout {
+					flex-direction: column;
+				}
+
+				.poems-titles {
+					display: none;
+				}
+
+				.poem-select {
+					display: block;
+					flex: 0 0 auto;
+				}
 			}
 
 			/* Page 2: embedded video, capped to a sane max width and kept at
@@ -654,6 +714,11 @@ const COLOR_SECONDARY = '#c4ad7a';
 									</button>
 								))}
 							</div>
+							<select class="tattered-box poem-select" aria-label="Select a poem">
+								{set.poems.map((poem, i) => (
+									<option value={i} selected={i === 0}>{poem.title}</option>
+								))}
+							</select>
 							<div class="tattered-box poems-display">
 								<div class="tattered-box-scroll">
 									{set.poems.map((poem, i) => (
@@ -739,19 +804,28 @@ const COLOR_SECONDARY = '#c4ad7a';
 				document.querySelector(`.nav-gap[data-gap="${gap}"]`)?.appendChild(shuffledButtons[i]);
 			});
 
-			// Poems page: clicking a title rectangle on the left swaps which
-			// poem's body text is shown in the single display box on the
-			// right - both sides keyed by the same data-poem-index.
+			// Poems page: picking a poem - via a title rectangle (wide
+			// viewports) or the dropdown that replaces them (narrow
+			// viewports, see the media query above) - swaps which poem's
+			// body text is shown in the display box, and keeps whichever
+			// picker is currently hidden in sync too, so switching viewport
+			// width mid-visit doesn't leave it stale.
 			const poemTitleButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.poem-title-box'));
-			poemTitleButtons.forEach((button) => {
-				button.addEventListener('click', () => {
-					const index = button.getAttribute('data-poem-index');
-					poemTitleButtons.forEach((b) => b.classList.toggle('is-selected', b === button));
-					document.querySelectorAll('.poem-body').forEach((body) => {
-						body.classList.toggle('is-active', body.getAttribute('data-poem-index') === index);
-					});
+			const poemSelect = document.querySelector<HTMLSelectElement>('.poem-select');
+
+			function selectPoem(index: string) {
+				poemTitleButtons.forEach((b) => b.classList.toggle('is-selected', b.getAttribute('data-poem-index') === index));
+				document.querySelectorAll('.poem-body').forEach((body) => {
+					body.classList.toggle('is-active', body.getAttribute('data-poem-index') === index);
 				});
+				if (poemSelect) poemSelect.value = index;
+			}
+
+			poemTitleButtons.forEach((button) => {
+				button.addEventListener('click', () => selectPoem(button.getAttribute('data-poem-index') ?? '0'));
 			});
+
+			poemSelect?.addEventListener('change', () => selectPoem(poemSelect.value));
 		</script>
 
 		<script define:vars={{ imageParallaxFactor: IMAGE_PARALLAX_FACTOR, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
