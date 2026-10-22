@@ -38,12 +38,123 @@ const pageOneParagraphs = [
 	'Curabitur pretium tincidunt lacus, et facilisis vel enim nec placerat. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Praesent commodo cursus magna, vel scelerisque nisl consectetur et.',
 ];
 
+const lyricsPoems = [
+	{
+		title: 'Consequences (Watering It)',
+		body: `I never called it wrong to water it
+I called out to the infinite font
+The way the breeze hits
+The first warm day of the year
+Slow, slow
+Slow
+Trouble not yourself over the cause of my shiver and spit
+It troubles you
+Didn't water it enough
+I couldn't even tell what it was
+Or if I even wanted water in the first place
+My thirst is infinite
+Something inside and ceaselessly dry
+You watered it too much
+A natural consequence
+There are always consequences
+
+I'm stepping on the virus I watered too much [kyle clicky]
+I'm not saying I shouldn't have watered it
+Given how this breeze hits
+On the first warm day of the year
+And it all filters back into place
+(A little faster now)
+(A little faster)
+Does it still trouble you?
+Is it multiplying in and dividing you?
+Water gives it a place to breathe
+Did I mention wanting water at all?
+Yes infinite font, infinite thirst
+Ceaseless and dry
+But you watered it too much
+There are always consequences
+Guess
+Thinking slips I spill it onto the time
+Birds keep talking in bird talk
+How many forms of life before I give out?
+Trace the vasculature of our discontents—how long?
+Try not to stand them in for something else
+Technology spells death in technicolor
+
+I'm losing my grip and unable to refer
+Not even sure of what I would do with referring
+Throwing words at the screen
+Abating at the abattoir
+The end of all conceits`,
+	},
+	{
+		title: 'Guess',
+		body: `Writing poetry as a means of avoiding the ground
+Good luck grounding poetry in the air
+Free floating mechanics loose of any contact
+Churning through the bloodways
+How to jump and touch sky
+Way the hunger creeps in
+Cutting loose or tying into the universal network of aches, pains, and sunny afternoons with nothing to do
+
+Replacing weed with alcohol: downgrade
+Replacing alcohol with religion: category mistake
+Replacing the great chasm of loneliness with "somebody please hold me:" equilibrium out loud
+
+My lithium level taken by a waving needle
+Vasculature and discontents I wasn't kidding
+Enough stability to make you cut your dreams off
+Together on the ground again
+Leaving ground brings you down harder than would've been
+
+What now? Give up on an airborne existence?
+Make a decent living and then what?
+Which version of this is it?
+I can barely decide what to have for dinner and I am throwing word salad at the only life I will ever have
+Wave the needle and ride the anguish over air?
+Still wind with bloodflow and concrete?
+
+I guess`,
+	},
+	{
+		title: 'Leaving of the Vine',
+		body: `Words lodge in the corners of my skull
+Cool evening asks if we're there yet
+I'm tilling my dreams again
+Fallow for so long
+Something provisional seeps in the groundwater
+Night air toward quiet
+Ambiguity in the realness of when
+Night earns a lifetime appointment
+Droning on forever in as many years
+
+Yet the day is but a single eye and
+I dreamed I was rolling one off into the sunset
+Never to be seen again
+You old cowboy,
+Tumbleweed doesn't smoke to keep you warm
+And warmth lingering smokes you
+As the tumbleweed rolls over your night
+I forget to drink water these days
+Desert forgets what forest remembers
+Only one meets the night with silence
+The other sings over eternal harmony
+When will you realize?
+
+You are watched all over by the stars
+On this clear and sleepless night
+
+You are watched all over by the stars
+On this clear and sleepless night`,
+	},
+];
+
 // Content sets, one "page" each - index matches the background image order
 // above (Home=0 has no page/link; Video=1, Events=2, Lyrics=3, About=4).
 const pageSets = [
 	{ label: 'Video', index: 1, layout: 'video', youtubeId: 'dQw4w9WgXcQ', title: 'Placeholder video - swap for a real one later' },
 	{ label: 'Events', index: 2, layout: 'columns-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
-	{ label: 'Lyrics', index: 3, layout: 'rows-3', items: Array.from({ length: 3 }, () => ({ text: nextLorem() })) },
+	{ label: 'Lyrics', index: 3, layout: 'tattered-poems', poems: lyricsPoems },
 	{ label: 'About', index: 4, layout: 'tattered-text', paragraphs: pageOneParagraphs },
 ];
 const contentSets = pageSets;
@@ -332,14 +443,17 @@ const COLOR_SECONDARY = '#c4ad7a';
 				grid-template-rows: repeat(3, 1fr);
 			}
 
-			/* Page 1: full-bleed opaque black box with readable body copy,
-			   rather than one of the big centered-text placeholder cards.
-			   The jagged border is a ::before so the SVG filter distorts
-			   only the decorative edge, not the actual paragraph text. */
-			.content-set[data-layout='tattered-text'] .tattered-box {
+			/* Full-bleed opaque black box with readable body copy, shared by
+			   both the About page (plain paragraphs) and Lyrics (titled
+			   poems) - rather than one of the big centered-text placeholder
+			   cards. The jagged border is a ::before so the SVG filter
+			   distorts only the decorative edge, not the actual text.
+			   Scrolls internally if its content runs longer than the box. */
+			.tattered-box {
 				position: relative;
 				width: 100%;
 				height: 100%;
+				overflow-y: auto;
 				box-sizing: border-box;
 				padding: 6% 7%;
 				background: #000;
@@ -350,17 +464,35 @@ const COLOR_SECONDARY = '#c4ad7a';
 				text-align: left;
 			}
 
-			.content-set[data-layout='tattered-text'] .tattered-box p {
+			.tattered-box p {
 				margin: 0 0 1em;
 			}
 
-			.content-set[data-layout='tattered-text'] .tattered-box::before {
+			.tattered-box::before {
 				content: '';
 				position: absolute;
 				inset: -6px;
 				border: 3px solid #fff;
 				filter: url(#tattered-edge);
 				pointer-events: none;
+			}
+
+			.tattered-box .poem {
+				margin-bottom: 2.5em;
+			}
+
+			.tattered-box .poem:last-child {
+				margin-bottom: 0;
+			}
+
+			.tattered-box .poem h2 {
+				margin: 0 0 0.75em;
+				font-size: 1.3em;
+			}
+
+			.tattered-box .poem-body {
+				margin: 0;
+				white-space: pre-line;
 			}
 
 			/* Page 2: embedded video, capped to a sane max width and kept at
@@ -444,6 +576,16 @@ const COLOR_SECONDARY = '#c4ad7a';
 							{set.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
 						</div>
 					)}
+					{set.layout === 'tattered-poems' && (
+						<div class="tattered-box">
+							{set.poems.map((poem) => (
+								<div class="poem">
+									<h2>{poem.title}</h2>
+									<p class="poem-body">{poem.body}</p>
+								</div>
+							))}
+						</div>
+					)}
 					{set.layout === 'video' && (
 						<div class="video-box">
 							<iframe
@@ -454,7 +596,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 							/>
 						</div>
 					)}
-					{set.layout !== 'tattered-text' && set.layout !== 'video' && (
+					{set.layout !== 'tattered-text' && set.layout !== 'tattered-poems' && set.layout !== 'video' && (
 						<div class="content-items">
 							{set.items.map((item) => (
 								<div class="content-item">{item.text}</div>
@@ -561,7 +703,12 @@ const COLOR_SECONDARY = '#c4ad7a';
 					// Every set is stacked at the same position regardless of
 					// opacity, so without this, an invisible set could still
 					// steal clicks/selection from the one actually on screen.
-					set.style.pointerEvents = opacity > 0 ? 'auto' : 'none';
+					// The video set gets a much higher bar: its embedded
+					// player is clickable (and audible) the instant pointer
+					// events are on, not just visually present like a div of
+					// text is, so it shouldn't arm until mostly faded in.
+					const pointerThreshold = set.getAttribute('data-layout') === 'video' ? 0.75 : 0;
+					set.style.pointerEvents = opacity > pointerThreshold ? 'auto' : 'none';
 				});
 
 				// Hidden until the first content section (index 1, Video) has
