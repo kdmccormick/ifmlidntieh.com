@@ -226,6 +226,9 @@ const COLOR_SECONDARY = '#c4ad7a';
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>IFMLIDNTIEH</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Cormorant&display=swap" rel="stylesheet" />
 		<style define:vars={{ maxContentIndex: MAX_CONTENT_INDEX, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH, colorPrimary: COLOR_PRIMARY, colorSecondary: COLOR_SECONDARY }}>
 			@font-face {
 				font-family: 'Shabby';
@@ -236,6 +239,14 @@ const COLOR_SECONDARY = '#c4ad7a';
 
 			html, body {
 				margin: 0;
+			}
+
+			/* Default for everything except the backdrop band-name text (and
+			   the nav styled to match it - see .backdrop-text/.section-nav
+			   below, which explicitly set Shabby instead). */
+			body {
+				font-family: 'Cormorant', serif;
+				font-size: 20px;
 			}
 
 			body {
@@ -371,7 +382,6 @@ const COLOR_SECONDARY = '#c4ad7a';
 				z-index: 1;
 				padding: 24px 16px;
 				color: #ff0;
-				font-family: monospace;
 				font-size: 14px;
 				text-align: center;
 			}
@@ -473,8 +483,6 @@ const COLOR_SECONDARY = '#c4ad7a';
 				box-sizing: border-box;
 				background: #000;
 				color: #fff;
-				font-family: sans-serif;
-				font-size: 1rem;
 				line-height: 1.6;
 				text-align: left;
 			}
@@ -525,13 +533,14 @@ const COLOR_SECONDARY = '#c4ad7a';
 			.poems-titles {
 				display: flex;
 				flex-direction: column;
+				justify-content: space-between;
 				gap: 4%;
 				width: 30%;
 				height: 100%;
 			}
 
 			.poem-title-box {
-				flex: 1;
+				flex: 0 0 20%;
 				display: flex;
 				align-items: center;
 				justify-content: center;
@@ -579,7 +588,6 @@ const COLOR_SECONDARY = '#c4ad7a';
 				text-align: center;
 				padding: 24px;
 				color: #fff;
-				font-family: sans-serif;
 				font-size: clamp(16px, 2.4vw, 24px);
 				background-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.45) 60%, transparent 100%);
 				/* pointer-events is inherited from .content-set (see below) -
