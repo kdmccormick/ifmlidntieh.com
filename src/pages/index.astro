@@ -15,25 +15,6 @@ const backgroundImages = [
 	'/images/backgrounds/About.jpg',
 ];
 
-const loremSnippets = [
-	'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-	'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-	'Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.',
-	'Duis aute irure dolor in reprehenderit in voluptate velit esse cillum.',
-	'Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia.',
-	'Curabitur pretium tincidunt lacus, et facilisis vel enim nec placerat.',
-	'Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere.',
-	'Praesent commodo cursus magna, vel scelerisque nisl consectetur et.',
-	'Nullam quis risus eget urna mollis ornare vel eu leo.',
-	'Maecenas sed diam eget risus varius blandit sit amet non magna.',
-];
-let loremIndex = 0;
-function nextLorem() {
-	const text = loremSnippets[loremIndex % loremSnippets.length];
-	loremIndex += 1;
-	return text;
-}
-
 // Single markdown file under src/content/about (see content.config.ts) -
 // same rendering mechanism as the poems below, just one entry instead of a
 // sorted collection of them.
@@ -53,12 +34,15 @@ const poemsData = await Promise.all(
 	}),
 );
 
-// Plain in-page data (not its own markdown collection, unlike the poems/
-// about above) - just a title plus a couple of lorem paragraphs each.
-const eventsData = ['Summer 2026', 'Autumn 2026', 'Winter 2027'].map((title) => ({
-	title,
-	paragraphs: [nextLorem(), nextLorem()],
-}));
+// Same shape/mechanism as the poems above - one markdown file per event
+// under src/content/events (see content.config.ts).
+const eventEntries = (await getCollection('events')).sort((a, b) => a.data.order - b.data.order);
+const eventsData = await Promise.all(
+	eventEntries.map(async (entry) => {
+		const { Content } = await render(entry);
+		return { title: entry.data.title, Content };
+	}),
+);
 
 // Content sets, one "page" each - index matches the background image order
 // above (Home=0 has no page/link; Video=1, Events=2, Poems=3, About=4).
@@ -629,9 +613,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 								<div class="tattered-box-scroll">
 									{set.items.map((item, i) => (
 										<div class:list={['tab-body', { 'is-active': i === 0 }]} data-tab-index={i}>
-											{/* Poems' items come from markdown (a Content
-											   component); Events' are plain lorem paragraphs. */}
-											{item.Content ? <item.Content /> : item.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
+											<item.Content />
 										</div>
 									))}
 								</div>
