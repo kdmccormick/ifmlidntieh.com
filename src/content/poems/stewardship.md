@@ -1,5 +1,5 @@
 ---
-title: Solidarity
+title: Stewardship
 order: 4
 ---
 *Coming soon*

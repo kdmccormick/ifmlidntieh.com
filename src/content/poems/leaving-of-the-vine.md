@@ -30,3 +30,5 @@ On this clear and sleepless night
 
 You are watched all over by the stars
 On this clear and sleepless night
+
+*Abe Brownell, 2026*
