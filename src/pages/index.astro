@@ -1,5 +1,9 @@
 ---
 import { getCollection, render } from 'astro:content';
+import { unified } from '@astrojs/markdown-remark';
+import remarkBreaks from 'remark-breaks';
+import imageryListRaw from '../content/about/imagery.list?raw';
+import namesListRaw from '../content/about/names.list?raw';
 
 const bandName = 'I Feel More Like I Do Now Than I Ever Have';
 const repetitions = Array.from({ length: 400 }, (_, i) => i);
@@ -15,11 +19,60 @@ const backgroundImages = [
 	'/images/backgrounds/About.jpg',
 ];
 
-// Single markdown file under src/content/about (see content.config.ts) -
-// same rendering mechanism as the poems below, just one entry instead of a
-// sorted collection of them.
+// Blank lines in the .list files are just visual separators between
+// entries, not data - drop them along with surrounding whitespace.
+function parseList(raw: string): string[] {
+	return raw
+		.split('\n')
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0);
+}
+
+const imageryList = parseList(imageryListRaw);
+const namesList = parseList(namesListRaw);
+
+// Approximate "longest" imagery line as the one with the most characters -
+// not the one that actually renders tallest (that'd mean rendering all of
+// them to measure), but close enough, and it's only used to reserve space
+// generously, not precisely.
+const imagerySizerLine = imageryList.reduce((longest, line) => (line.length > longest.length ? line : longest));
+
+function stripParagraphTag(html: string): string {
+	return html.replace(/^<p>/, '').replace(/<\/p>\s*$/, '');
+}
+
+// Single markdown file under src/content/about (see content.config.ts).
+// Its body has two placeholders - {imagery} and {names} - that get swapped
+// here for spans carrying their step-0 value (the first imagery line, and
+// the names in their original list order), rather than being left to the
+// normal collection renderer. That's so the client-side script below can
+// target them by class and cycle their text as the page scrolls. Rendering
+// the swapped-in markdown ourselves (same processor/plugins as
+// astro.config.mjs) is what lets those placeholders be replaced before
+// markdown turns them into HTML, instead of after.
 const aboutEntry = (await getCollection('about'))[0];
-const { Content: AboutContent } = await render(aboutEntry);
+const aboutRenderer = await unified({ remarkPlugins: [remarkBreaks] }).createRenderer({});
+
+// {imagery}'s whole line (not just the placeholder) gets rebuilt as a CSS
+// grid with two copies stacked in the same cell: the live one, and an
+// invisible "sizer" using imagerySizerLine instead. The grid cell's height
+// becomes the taller of the two, so swapping the live line's text never
+// changes this paragraph's height (and doesn't push the paragraphs below
+// it up and down) - this needs the whole line, not just a span around
+// {imagery}, since the prefix text ("... is... ") plus the imagery text is
+// what actually wraps across lines together.
+const [, imageryPrefixSrc = '', imagerySuffixSrc = ''] = aboutEntry.body.match(/^(.*)\{imagery\}(.*)$/m) ?? [];
+const imageryPrefixHtml = imageryPrefixSrc ? stripParagraphTag((await aboutRenderer.render(imageryPrefixSrc)).code) : '';
+const imagerySuffixHtml = imagerySuffixSrc ? stripParagraphTag((await aboutRenderer.render(imagerySuffixSrc)).code) : '';
+// The prefix is re-rendered on its own above, so the trailing space before
+// {imagery} in the markdown source doesn't survive (CommonMark trims
+// trailing whitespace at a paragraph's end) - add it back explicitly here.
+const imageryBlockHtml = `<p class="dynamic-field-wrapper"><span class="dynamic-field-layer">${imageryPrefixHtml} <span class="dynamic-field" data-field="imagery">${imageryList[0]}</span>${imagerySuffixHtml}</span><span class="dynamic-field-layer dynamic-field-sizer" aria-hidden="true">${imageryPrefixHtml} ${imagerySizerLine}${imagerySuffixHtml}</span></p>`;
+
+const aboutMarkdownWithFields = aboutEntry.body
+	.replace(/^.*\{imagery\}.*$/m, imageryBlockHtml)
+	.replace('{names}', `<span class="dynamic-field" data-field="names">${namesList.join(', ')}</span>`);
+const { code: aboutHtml } = await aboutRenderer.render(aboutMarkdownWithFields);
 
 // Each poem is its own markdown file under src/content/poems (see
 // content.config.ts) - title and display order come from frontmatter,
@@ -50,7 +103,7 @@ const pageSets = [
 	{ label: 'Video', index: 1, layout: 'video', youtubeId: 'xoUr47_bM5I', title: 'I Feel More Like I Do Now Than I Ever Have - Live in a Basement - August 2026' },
 	{ label: 'Events', index: 2, layout: 'tabs', selectAriaLabel: 'Select an event', items: eventsData, reversed: true },
 	{ label: 'Poems', index: 3, layout: 'tabs', selectAriaLabel: 'Select a poem', items: poemsData },
-	{ label: 'About', index: 4, layout: 'tattered-text', Content: AboutContent },
+	{ label: 'About', index: 4, layout: 'tattered-text', html: aboutHtml },
 ];
 const contentSets = pageSets;
 
@@ -91,6 +144,12 @@ const CONTENT_PEAK_SPACING = 1 / IMAGE_PARALLAX_FACTOR;
 // and two adjacent sections are each at 50% at the midpoint between them -
 // a continuous crossfade, not a fade-out/pause/fade-in.
 const CONTENT_FADE_HALF_WIDTH = CONTENT_PEAK_SPACING;
+// About's {imagery} field (see below) holds each line for (word count / 2)
+// seconds before swapping to a new random one - longer phrases stay up
+// longer. The swap itself fades out/in across imageryFadeDurationMs, which
+// must stay shorter than that and match the CSS transition-duration on
+// .dynamic-field.
+const IMAGERY_FADE_DURATION_MS = 600;
 // Highest content-set index (4, since they're 1-4) - used for the scroll
 // length below. Not contentSets.length, since that's now 4 while indices
 // run 1-4 rather than 0-3.
@@ -366,6 +425,27 @@ const COLOR_SECONDARY = '#c4ad7a';
 				margin: 0 0 1em;
 			}
 
+			/* About's {imagery} line (see index.astro frontmatter) is rebuilt as
+			   a single-cell grid with its live text and a hidden same-styled
+			   "sizer" overlapping in that cell - the cell's height becomes
+			   whichever of the two is taller, so changing the live text never
+			   changes this paragraph's height. */
+			.tattered-box :global(.dynamic-field-wrapper) {
+				display: grid;
+			}
+			.tattered-box :global(.dynamic-field-layer) {
+				grid-area: 1 / 1;
+			}
+			.tattered-box :global(.dynamic-field-sizer) {
+				visibility: hidden;
+			}
+			/* Duration here must match IMAGERY_FADE_DURATION_MS in index.astro's
+			   frontmatter, which times the text swap to land while this is
+			   fully faded out. */
+			.tattered-box :global(.dynamic-field[data-field='imagery']) {
+				transition: opacity 0.6s ease;
+			}
+
 			.tattered-box::before {
 				content: '';
 				position: absolute;
@@ -588,9 +668,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 				<div class="content-set" data-index={set.index} data-layout={set.layout}>
 					{set.layout === 'tattered-text' && (
 						<div class="tattered-box">
-							<div class="tattered-box-scroll">
-								<set.Content />
-							</div>
+							<div class="tattered-box-scroll" set:html={set.html} />
 						</div>
 					)}
 					{set.layout === 'tabs' && (
@@ -722,7 +800,16 @@ const COLOR_SECONDARY = '#c4ad7a';
 			});
 		</script>
 
-		<script define:vars={{ imageParallaxFactor: IMAGE_PARALLAX_FACTOR, contentPeakSpacing: CONTENT_PEAK_SPACING, contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH }}>
+		<script
+			define:vars={{
+				imageParallaxFactor: IMAGE_PARALLAX_FACTOR,
+				contentPeakSpacing: CONTENT_PEAK_SPACING,
+				contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH,
+				imageryList,
+				namesList,
+				imageryFadeDurationMs: IMAGERY_FADE_DURATION_MS,
+			}}
+		>
 			// Parallax layers 2 and 3. One continuous scroll progress value
 			// drives both: `progress` is scrollY measured in units of one
 			// viewport-height of scroll.
@@ -741,6 +828,59 @@ const COLOR_SECONDARY = '#c4ad7a';
 			const contentSetEls = Array.from(document.querySelectorAll('.content-set'));
 			const sectionNav = document.querySelector('.section-nav');
 			const sectionNavLinks = Array.from(document.querySelectorAll('.section-nav-link'));
+
+			// About's {imagery}/{names} fields (see index.astro frontmatter,
+			// which renders a static step-0 value into these spans server-side -
+			// just a placeholder until this script picks something random).
+			const dynamicImagerySpan = document.querySelector('.dynamic-field[data-field="imagery"]');
+			const dynamicNamesSpan = document.querySelector('.dynamic-field[data-field="names"]');
+
+			function shuffle(items) {
+				const result = items.slice();
+				for (let i = result.length - 1; i > 0; i--) {
+					const j = Math.floor(Math.random() * (i + 1));
+					[result[i], result[j]] = [result[j], result[i]];
+				}
+				return result;
+			}
+
+			// Names: one random order, picked once on load, then left alone.
+			if (dynamicNamesSpan) {
+				dynamicNamesSpan.textContent = shuffle(namesList).join(', ');
+			}
+
+			// Imagery: a random line on load, then fade to a different random
+			// line after holding it for (word count / 2) seconds - longer
+			// phrases stay up longer. The fade is just an opacity dip timed to
+			// match the CSS transition below (see .dynamic-field), with the
+			// text swapped at the bottom of the dip, while it's invisible.
+			if (dynamicImagerySpan) {
+				let currentImageryIndex = Math.floor(Math.random() * imageryList.length);
+				dynamicImagerySpan.textContent = imageryList[currentImageryIndex];
+
+				function scheduleImageryFade() {
+					const wordCount = imageryList[currentImageryIndex].trim().split(/\s+/).length;
+					const holdDurationMs = (wordCount / 2) * 1000;
+					setTimeout(() => {
+						dynamicImagerySpan.style.opacity = '0';
+						setTimeout(() => {
+							// Exclude the current line so every swap is a visible
+							// change, not just a shorter list to pick from.
+							let nextIndex = currentImageryIndex;
+							if (imageryList.length > 1) {
+								while (nextIndex === currentImageryIndex) {
+									nextIndex = Math.floor(Math.random() * imageryList.length);
+								}
+							}
+							currentImageryIndex = nextIndex;
+							dynamicImagerySpan.textContent = imageryList[currentImageryIndex];
+							dynamicImagerySpan.style.opacity = '1';
+							scheduleImageryFade();
+						}, imageryFadeDurationMs);
+					}, holdDurationMs);
+				}
+				scheduleImageryFade();
+			}
 
 			function updateParallax() {
 				const scrollY = window.scrollY;
