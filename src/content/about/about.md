@@ -1,7 +1,10 @@
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+What is this thing, *I Feel I More Like I Do Now Than I Ever Have*?
 
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+*I Feel I More Like I Do Now Than I Ever Have* is... a phenomenon worth experiencing.
 
-Curabitur pretium tincidunt lacus, et facilisis vel enim nec placerat. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Praesent commodo cursus magna, vel scelerisque nisl consectetur et.
+*I Feel I More Like I Do Now Than I Ever Have* is... {imagery}
 
-⚠️ PLACEHOLDER FOOTER ⚠️ — &copy; 2026 I Feel More Like I Do Now Than I Ever Have. All rights reserved (probably). Replace this with real copyright/contact/links later.
+*I Feel I More Like I Do Now Than I Ever Have* is... fun-focused math rock with poetry on top.
+
+*I Feel I More Like I Do Now Than I Ever Have* is... {names}, and an associated cabal of lovely, creative, weirdos. We are based in and around Boston.
+
