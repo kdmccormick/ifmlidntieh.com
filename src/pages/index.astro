@@ -682,7 +682,9 @@ const COLOR_SECONDARY = '#c4ad7a';
 		    (including the one "actual" instance - it's a visual reveal, not
 		    a meaningful heading), so this is the only place the band's name
 		    is actually exposed to assistive tech. */}
-		<h1 class="visually-hidden">{bandName}</h1>
+		{/* tabindex="-1": not in the normal tab sequence, but a valid target
+		    for jumpToHash's script-driven focus() below. */}
+		<h1 class="visually-hidden" tabindex="-1">{bandName}</h1>
 
 		<div class="backdrop-text">
 			<p>{repetitions.map((i) => (
@@ -737,7 +739,9 @@ const COLOR_SECONDARY = '#c4ad7a';
 					    screen reader has no other way to tell these four
 					    crossfading, visually-identical-looking panels apart,
 					    or to jump between them via "navigate by heading". */}
-					<h2 class="visually-hidden">{set.label}</h2>
+					{/* tabindex="-1": not in the normal tab sequence, but a valid
+					    target for jumpToHash's script-driven focus() below. */}
+					<h2 class="visually-hidden" tabindex="-1">{set.label}</h2>
 					{set.layout === 'tattered-text' && (
 						<div class="tattered-box">
 							<div class="tattered-box-scroll" set:html={set.html} />
@@ -1032,6 +1036,16 @@ const COLOR_SECONDARY = '#c4ad7a';
 				}
 
 				const progress = scrollY / sectionHeightPx;
+
+				// Current section: whichever peak is nearest, ties going to
+				// the earlier (lower-index) section - each section "owns" the
+				// scroll range up to and including its own midpoint with the
+				// next one, so Math.ceil (not .round) is what gives ties to
+				// the lower side. Computed up front since it now also drives
+				// which section is reachable at all (see inert below), not
+				// just the nav's "current" highlight further down.
+				const currentIndex = Math.max(0, Math.ceil(progress / contentPeakSpacing - 0.5));
+
 				contentSetEls.forEach((set) => {
 					// Content sets are indexed 1-4 (not 0-3), so this reads
 					// each set's own data-index rather than its position in
@@ -1048,17 +1062,36 @@ const COLOR_SECONDARY = '#c4ad7a';
 					// events are on, not just visually present like a div of
 					// text is, so it shouldn't arm until mostly faded in.
 					const pointerThreshold = set.getAttribute('data-layout') === 'video' ? 0.75 : 0;
-					const isInteractive = opacity > pointerThreshold;
-					set.style.pointerEvents = isInteractive ? 'auto' : 'none';
+					set.style.pointerEvents = opacity > pointerThreshold ? 'auto' : 'none';
 					// pointerEvents alone only stops mouse/touch - a keyboard
 					// user tabbing, or a screen reader's virtual cursor
 					// reading straight through the DOM, would otherwise still
 					// reach every button/select/link/iframe in all four
 					// sections regardless of which one is actually visible.
 					// inert removes an invisible section from both the tab
-					// order and the accessibility tree until its opacity
-					// clears the same threshold mouse interaction uses.
-					set.inert = !isInteractive;
+					// order and the accessibility tree.
+					//
+					// This is keyed off currentIndex, not the continuous
+					// opacity/pointerThreshold above - that threshold is
+					// deliberately fuzzy for video (0.75, so its player
+					// doesn't arm for clicks until mostly faded in), and even
+					// at 0 for everything else, the crossfade's width means
+					// two neighboring sections both read as "visible" across
+					// a wide dead zone around each midpoint. Landing exactly
+					// on a peak (e.g. a nav-link click) sidesteps that, but
+					// ordinary scrolling rarely does - so whichever section
+					// you were tabbing through could silently go inert while
+					// still holding focus, the moment a small scroll put its
+					// opacity at or under that threshold. That forces focus
+					// back to <body>, and the next Tab from there lands on
+					// the very first focusable thing in the document - one
+					// of the inline nav-links up top - which, being normal
+					// in-flow content (unlike these fixed-position panels),
+					// the browser then auto-scrolls back into view. currentIndex
+					// instead owns a full, stable half-spacing-wide range on
+					// each side of its peak, with no dead zone to fall out of
+					// mid-interaction.
+					set.inert = index !== currentIndex;
 				});
 
 				// Hidden until the first content section (index 1, Video) has
@@ -1071,12 +1104,6 @@ const COLOR_SECONDARY = '#c4ad7a';
 				// scrolled anywhere.
 				if (sectionNav) sectionNav.inert = !sectionNavVisible;
 
-				// Current section: whichever peak is nearest, ties going to
-				// the earlier (lower-index) section - each section "owns" the
-				// scroll range up to and including its own midpoint with the
-				// next one, so Math.ceil (not .round) is what gives ties to
-				// the lower side.
-				const currentIndex = Math.max(0, Math.ceil(progress / contentPeakSpacing - 0.5));
 				sectionNavLinks.forEach((link) => {
 					const index = Number(link.getAttribute('data-target-index'));
 					const isCurrent = index === currentIndex;
@@ -1109,6 +1136,33 @@ const COLOR_SECONDARY = '#c4ad7a';
 				const targetIndex = Number(link.getAttribute('data-target-index'));
 				const top = targetIndex * contentPeakSpacing * window.innerHeight;
 				window.scrollTo({ top, behavior });
+
+				// Clicking a link only focuses that link - it doesn't move
+				// focus to wherever the page then scrolls to, so without
+				// this, the next Tab would just continue on to whichever nav
+				// link comes next in the document, rather than into the
+				// section just jumped to. Moving focus to the destination's
+				// heading (see the h1/h2 tabindex="-1" above) is what fixes
+				// that, and also announces "arrived at Poems" etc. to a
+				// screen reader, the way a page navigation normally would.
+				//
+				// inert is set directly here, synchronously, rather than
+				// left for the next scroll-driven updateParallax() to catch
+				// up on - under behavior: 'smooth' in particular,
+				// window.scrollY doesn't reach `top` (and so updateParallax
+				// doesn't mark the destination non-inert) until the scroll
+				// animation finishes moments later, and an inert element
+				// can't be focused at all.
+				contentSetEls.forEach((set) => {
+					set.inert = Number(set.getAttribute('data-index')) !== targetIndex;
+				});
+				if (sectionNav) sectionNav.inert = targetIndex === 0;
+
+				const heading =
+					targetIndex === 0
+						? document.querySelector('h1')
+						: document.querySelector(`.content-set[data-index="${targetIndex}"] h2`);
+				heading?.focus();
 			}
 
 			document.querySelectorAll('[data-target-index]').forEach((link) => {
