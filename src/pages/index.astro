@@ -216,6 +216,24 @@ const COLOR_SECONDARY = '#c4ad7a';
 				margin: 0;
 			}
 
+			/* Standard sr-only pattern: present in the accessibility tree and
+			   normal reading/tab order, invisible and taking up no layout
+			   space. Used for an h1 (the band name) and an h2 per section -
+			   headings a screen reader's "navigate by heading" relies on,
+			   that the fully-visual nav (repeated backdrop text, section-nav)
+			   doesn't otherwise provide. */
+			.visually-hidden {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				padding: 0;
+				margin: -1px;
+				overflow: hidden;
+				clip: rect(0, 0, 0, 0);
+				white-space: nowrap;
+				border: 0;
+			}
+
 			/* Default for everything except the backdrop band-name text (and
 			   the nav styled to match it - see .backdrop-text/.section-nav
 			   below, which explicitly set Shabby instead). */
@@ -660,6 +678,12 @@ const COLOR_SECONDARY = '#c4ad7a';
 		</style>
 	</head>
 	<body>
+		{/* The repeated backdrop text below is aria-hidden per-occurrence
+		    (including the one "actual" instance - it's a visual reveal, not
+		    a meaningful heading), so this is the only place the band's name
+		    is actually exposed to assistive tech. */}
+		<h1 class="visually-hidden">{bandName}</h1>
+
 		<div class="backdrop-text">
 			<p>{repetitions.map((i) => (
 				<>
@@ -697,7 +721,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 			</div>
 		</div>
 
-		<div class="content-overlay">
+		<main class="content-overlay">
 			{/* Deliberately no id={slug} here, even though the nav links below
 			    point at #video etc - these are fixed-position overlays, not
 			    real document positions, so an id matching the URL fragment
@@ -708,6 +732,12 @@ const COLOR_SECONDARY = '#c4ad7a';
 			    nothing scrolls except that script. */}
 			{contentSets.map((set) => (
 				<div class="content-set" data-index={set.index} data-layout={set.layout}>
+					{/* Visually hidden - sighted users read the current section
+					    from the floating section-nav/background image, but a
+					    screen reader has no other way to tell these four
+					    crossfading, visually-identical-looking panels apart,
+					    or to jump between them via "navigate by heading". */}
+					<h2 class="visually-hidden">{set.label}</h2>
 					{set.layout === 'tattered-text' && (
 						<div class="tattered-box">
 							<div class="tattered-box-scroll" set:html={set.html} />
@@ -717,7 +747,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 						<div class:list={['tabs-layout', { reversed: set.reversed }]}>
 							<div class="tabs-titles">
 								{set.items.map((item, i) => (
-									<button type="button" class:list={['tattered-box', 'tab-title-box', { 'is-selected': i === 0 }]} data-tab-index={i}>
+									<button type="button" class:list={['tattered-box', 'tab-title-box', { 'is-selected': i === 0 }]} data-tab-index={i} aria-pressed={i === 0}>
 										{item.title}
 									</button>
 								))}
@@ -752,9 +782,9 @@ const COLOR_SECONDARY = '#c4ad7a';
 					)}
 				</div>
 			))}
-		</div>
+		</main>
 
-		<nav class="section-nav">
+		<nav class="section-nav" aria-label="Section navigation">
 			<a class="section-nav-link" href="#home" data-target-index="0">Home</a>
 			{pageSets.map((set) => (
 				<a class="section-nav-link" href={`#${slugify(set.label)}`} data-target-index={set.index}>{set.label}</a>
@@ -827,7 +857,11 @@ const COLOR_SECONDARY = '#c4ad7a';
 				const bodies = Array.from(layout.querySelectorAll<HTMLElement>('.tab-body'));
 
 				function selectTab(index: string) {
-					titleButtons.forEach((b) => b.classList.toggle('is-selected', b.getAttribute('data-tab-index') === index));
+					titleButtons.forEach((b) => {
+						const isSelected = b.getAttribute('data-tab-index') === index;
+						b.classList.toggle('is-selected', isSelected);
+						b.setAttribute('aria-pressed', String(isSelected));
+					});
 					bodies.forEach((body) => {
 						body.classList.toggle('is-active', body.getAttribute('data-tab-index') === index);
 					});
@@ -869,6 +903,14 @@ const COLOR_SECONDARY = '#c4ad7a';
 			// contentFadeHalfWidth before/after that - so one set fully
 			// fades out before the next fades in, rather than crossfading
 			// directly into it.
+			// All scroll positioning on this page is computed (see jumpToHash
+			// below), including on initial load - the browser's own
+			// scroll-restoration (e.g. on reload, or returning via
+			// back/forward) would otherwise fight with that.
+			if ('scrollRestoration' in history) {
+				history.scrollRestoration = 'manual';
+			}
+
 			const track = document.querySelector('.bg-image-track');
 			const contentSetEls = Array.from(document.querySelectorAll('.content-set'));
 			const sectionNav = document.querySelector('.section-nav');
@@ -1006,12 +1048,28 @@ const COLOR_SECONDARY = '#c4ad7a';
 					// events are on, not just visually present like a div of
 					// text is, so it shouldn't arm until mostly faded in.
 					const pointerThreshold = set.getAttribute('data-layout') === 'video' ? 0.75 : 0;
-					set.style.pointerEvents = opacity > pointerThreshold ? 'auto' : 'none';
+					const isInteractive = opacity > pointerThreshold;
+					set.style.pointerEvents = isInteractive ? 'auto' : 'none';
+					// pointerEvents alone only stops mouse/touch - a keyboard
+					// user tabbing, or a screen reader's virtual cursor
+					// reading straight through the DOM, would otherwise still
+					// reach every button/select/link/iframe in all four
+					// sections regardless of which one is actually visible.
+					// inert removes an invisible section from both the tab
+					// order and the accessibility tree until its opacity
+					// clears the same threshold mouse interaction uses.
+					set.inert = !isInteractive;
 				});
 
 				// Hidden until the first content section (index 1, Video) has
 				// reached 50% opacity on its way up - visible from there on.
-				sectionNav?.classList.toggle('is-visible', progress >= contentPeakSpacing / 2);
+				const sectionNavVisible = progress >= contentPeakSpacing / 2;
+				sectionNav?.classList.toggle('is-visible', sectionNavVisible);
+				// Same reasoning as content-set inert above: opacity: 0 alone
+				// doesn't stop these links from being tabbed to (with no
+				// visible focus ring to show for it) before the user has
+				// scrolled anywhere.
+				if (sectionNav) sectionNav.inert = !sectionNavVisible;
 
 				// Current section: whichever peak is nearest, ties going to
 				// the earlier (lower-index) section - each section "owns" the
@@ -1021,7 +1079,16 @@ const COLOR_SECONDARY = '#c4ad7a';
 				const currentIndex = Math.max(0, Math.ceil(progress / contentPeakSpacing - 0.5));
 				sectionNavLinks.forEach((link) => {
 					const index = Number(link.getAttribute('data-target-index'));
-					link.classList.toggle('is-current', index === currentIndex);
+					const isCurrent = index === currentIndex;
+					link.classList.toggle('is-current', isCurrent);
+					// aria-current (rather than just the visual color change
+					// above) is what lets a screen reader announce which
+					// section link is "current".
+					if (isCurrent) {
+						link.setAttribute('aria-current', 'page');
+					} else {
+						link.removeAttribute('aria-current');
+					}
 				});
 			}
 
@@ -1055,12 +1122,22 @@ const COLOR_SECONDARY = '#c4ad7a';
 			});
 
 			// Landing directly on a section's URL (e.g. /#video) needs the
-			// same jump, just instant rather than smooth, and has to happen
-			// before the first updateParallax() below so that call already
-			// reflects the right section instead of flashing Home first.
-			jumpToHash(window.location.hash.replace(/^#/, ''), 'auto');
+			// same jump, just instant rather than smooth. Done immediately
+			// (so there's no flash of Home first) and then redone on the
+			// load event, since window.innerHeight at parse time doesn't
+			// always match its final settled value - mobile browsers in
+			// particular can still be collapsing their address bar at this
+			// point - and jumpToHash's target scales with whatever
+			// innerHeight was current when it ran. Landing on a hash this
+			// way is the one path that can run before that settles; a later
+			// click or hashchange always has the final value already.
+			function jumpToInitialHash() {
+				jumpToHash(window.location.hash.replace(/^#/, ''), 'auto');
+				updateParallax();
+			}
+			jumpToInitialHash();
+			window.addEventListener('load', jumpToInitialHash);
 
-			updateParallax();
 			window.addEventListener('scroll', updateParallax, { passive: true });
 			window.addEventListener('resize', updateParallax);
 		</script>
