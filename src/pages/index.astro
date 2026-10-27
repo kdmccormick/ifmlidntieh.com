@@ -1,8 +1,9 @@
 ---
 import { getCollection, render } from 'astro:content';
-import { unified } from '@astrojs/markdown-remark';
+import { unified, type MarkdownRenderer } from '@astrojs/markdown-remark';
 import remarkBreaks from 'remark-breaks';
-import imageryListRaw from '../content/about/imagery.list?raw';
+import feelingsListRaw from '../content/about/feelings.list?raw';
+import whatListRaw from '../content/about/what.list?raw';
 import namesListRaw from '../content/about/names.list?raw';
 
 const bandName = 'I Feel More Like I Do Now Than I Ever Have';
@@ -28,50 +29,66 @@ function parseList(raw: string): string[] {
 		.filter((line) => line.length > 0);
 }
 
-const imageryList = parseList(imageryListRaw);
+const feelingsList = parseList(feelingsListRaw);
+const whatList = parseList(whatListRaw);
 const namesList = parseList(namesListRaw);
-
-// Approximate "longest" imagery line as the one with the most characters -
-// not the one that actually renders tallest (that'd mean rendering all of
-// them to measure), but close enough, and it's only used to reserve space
-// generously, not precisely.
-const imagerySizerLine = imageryList.reduce((longest, line) => (line.length > longest.length ? line : longest));
 
 function stripParagraphTag(html: string): string {
 	return html.replace(/^<p>/, '').replace(/<\/p>\s*$/, '');
 }
 
+// Builds the swapped-in HTML for a "{fieldName}" line (e.g. "*band* is...
+// {feelings}") in About's markdown - used for both {feelings} and {what}.
+// The whole line (not just the placeholder) gets rebuilt as a CSS grid with
+// two copies stacked in the same cell: the live one, and an invisible
+// "sizer" using the list's longest-by-character-count line instead (an
+// approximation of "longest when rendered" - not exact, but it only needs
+// to reserve space generously, not precisely). The grid cell's height
+// becomes the taller of the two, so swapping the live line's text never
+// changes this paragraph's height (and doesn't push the paragraphs below it
+// up and down) - this needs the whole line, not just a span around the
+// placeholder, since the prefix text ("... is... ") plus the field's text is
+// what actually wraps across lines together.
+async function buildDynamicFieldLine(bodySource: string, fieldName: string, list: string[], renderer: MarkdownRenderer) {
+	const [, prefixSrc = '', suffixSrc = ''] = bodySource.match(new RegExp(`^(.*)\\{${fieldName}\\}(.*)$`, 'm')) ?? [];
+	const prefixHtml = prefixSrc ? stripParagraphTag((await renderer.render(prefixSrc)).code) : '';
+	const suffixHtml = suffixSrc ? stripParagraphTag((await renderer.render(suffixSrc)).code) : '';
+	const sizerLine = list.reduce((longest, line) => (line.length > longest.length ? line : longest));
+	// The prefix is re-rendered on its own above, so the trailing space
+	// before the placeholder in the markdown source doesn't survive
+	// (CommonMark trims trailing whitespace at a paragraph's end) - add it
+	// back explicitly here.
+	const html = `<p class="dynamic-field-wrapper" data-field="${fieldName}"><span class="dynamic-field-layer">${prefixHtml} <span class="dynamic-field" data-field="${fieldName}">${list[0]}</span>${suffixHtml}</span><span class="dynamic-field-layer dynamic-field-sizer" aria-hidden="true">${prefixHtml} ${sizerLine}${suffixHtml}</span></p>`;
+	return html;
+}
+
+// Static tail appended after the shuffled names in {names-and-weirdos} -
+// always the same text, but re-appended (and so included in the fade) on
+// every reshuffle rather than living in the surrounding markdown as its own
+// static text, per the user's request.
+const NAMES_SUFFIX = ' and an associated cabal of lovely, creative weirdos.';
+
 // Single markdown file under src/content/about (see content.config.ts).
-// Its body has two placeholders - {imagery} and {names} - that get swapped
-// here for spans carrying their step-0 value (the first imagery line, and
-// the names in their original list order), rather than being left to the
-// normal collection renderer. That's so the client-side script below can
-// target them by class and cycle their text as the page scrolls. Rendering
-// the swapped-in markdown ourselves (same processor/plugins as
-// astro.config.mjs) is what lets those placeholders be replaced before
-// markdown turns them into HTML, instead of after.
+// Its body has three placeholders - {feelings}, {what}, and
+// {names-and-weirdos} - that get swapped here for spans carrying their
+// step-0 value, rather than being left to the normal collection renderer.
+// That's so the client-side script below can target them by class and cycle
+// their text on a timer. Rendering the swapped-in markdown ourselves (same
+// processor/plugins as astro.config.mjs) is what lets those placeholders be
+// replaced before markdown turns them into HTML, instead of after.
 const aboutEntry = (await getCollection('about'))[0];
 const aboutRenderer = await unified({ remarkPlugins: [remarkBreaks] }).createRenderer({});
 
-// {imagery}'s whole line (not just the placeholder) gets rebuilt as a CSS
-// grid with two copies stacked in the same cell: the live one, and an
-// invisible "sizer" using imagerySizerLine instead. The grid cell's height
-// becomes the taller of the two, so swapping the live line's text never
-// changes this paragraph's height (and doesn't push the paragraphs below
-// it up and down) - this needs the whole line, not just a span around
-// {imagery}, since the prefix text ("... is... ") plus the imagery text is
-// what actually wraps across lines together.
-const [, imageryPrefixSrc = '', imagerySuffixSrc = ''] = aboutEntry.body.match(/^(.*)\{imagery\}(.*)$/m) ?? [];
-const imageryPrefixHtml = imageryPrefixSrc ? stripParagraphTag((await aboutRenderer.render(imageryPrefixSrc)).code) : '';
-const imagerySuffixHtml = imagerySuffixSrc ? stripParagraphTag((await aboutRenderer.render(imagerySuffixSrc)).code) : '';
-// The prefix is re-rendered on its own above, so the trailing space before
-// {imagery} in the markdown source doesn't survive (CommonMark trims
-// trailing whitespace at a paragraph's end) - add it back explicitly here.
-const imageryBlockHtml = `<p class="dynamic-field-wrapper"><span class="dynamic-field-layer">${imageryPrefixHtml} <span class="dynamic-field" data-field="imagery">${imageryList[0]}</span>${imagerySuffixHtml}</span><span class="dynamic-field-layer dynamic-field-sizer" aria-hidden="true">${imageryPrefixHtml} ${imagerySizerLine}${imagerySuffixHtml}</span></p>`;
+const feelingsLineHtml = await buildDynamicFieldLine(aboutEntry.body, 'feelings', feelingsList, aboutRenderer);
+const whatLineHtml = await buildDynamicFieldLine(aboutEntry.body, 'what', whatList, aboutRenderer);
 
 const aboutMarkdownWithFields = aboutEntry.body
-	.replace(/^.*\{imagery\}.*$/m, imageryBlockHtml)
-	.replace('{names}', `<span class="dynamic-field" data-field="names">${namesList.join(', ')}</span>`);
+	.replace(/^.*\{feelings\}.*$/m, feelingsLineHtml)
+	.replace(/^.*\{what\}.*$/m, whatLineHtml)
+	.replace(
+		'{names-and-weirdos}',
+		`<span class="dynamic-field" data-field="names-and-weirdos">${namesList.join(', ')}${NAMES_SUFFIX}</span>`,
+	);
 const { code: aboutHtml } = await aboutRenderer.render(aboutMarkdownWithFields);
 
 // Each poem is its own markdown file under src/content/poems (see
@@ -114,7 +131,13 @@ const contentSets = pageSets;
 // never touching since there's always at least one occurrence between them -
 // and a link's gap can't be immediately next to whichever occurrence is
 // currently the actual-title (its 1-2 bordering gaps are off limits).
-const navLinks = pageSets.map((set) => ({ label: set.label, targetIndex: set.index }));
+// Used for every nav link's href (e.g. "#video") - plain lowercase/hyphenated
+// labels, so clicking a section link leaves a shareable /#<slug> URL.
+function slugify(label: string): string {
+	return label.toLowerCase().replace(/\s+/g, '-');
+}
+
+const navLinks = pageSets.map((set) => ({ label: set.label, targetIndex: set.index, slug: slugify(set.label) }));
 const ACTUAL_TITLE_STATIC_INDEX = 2;
 // Static (no-JS) fallback placement - avoids gaps 1 and 2, the two bordering
 // ACTUAL_TITLE_STATIC_INDEX. Gap 4 is left empty, same as in the original
@@ -144,12 +167,14 @@ const CONTENT_PEAK_SPACING = 1 / IMAGE_PARALLAX_FACTOR;
 // and two adjacent sections are each at 50% at the midpoint between them -
 // a continuous crossfade, not a fade-out/pause/fade-in.
 const CONTENT_FADE_HALF_WIDTH = CONTENT_PEAK_SPACING;
-// About's {imagery} field (see below) holds each line for (word count / 2)
-// seconds before swapping to a new random one - longer phrases stay up
-// longer. The swap itself fades out/in across imageryFadeDurationMs, which
-// must stay shorter than that and match the CSS transition-duration on
-// .dynamic-field.
-const IMAGERY_FADE_DURATION_MS = 600;
+// About's {feelings}/{what} fields (see below) each hold their current line
+// for (word count / 2) seconds before swapping to a new random one - longer
+// phrases stay up longer. {names-and-weirdos} instead reshuffles on a flat interval
+// (NAMES_FADE_INTERVAL_MS), regardless of word count. Either way the swap
+// fades out/in across fadeDurationMs, which must stay shorter than both and
+// match the CSS transition-duration on .dynamic-field.
+const FADE_DURATION_MS = 600;
+const NAMES_FADE_INTERVAL_MS = 10000;
 // Highest content-set index (4, since they're 1-4) - used for the scroll
 // length below. Not contentSets.length, since that's now 4 while indices
 // run 1-4 rather than 0-3.
@@ -263,6 +288,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 				border: none;
 				padding: 0;
 				margin: 0 0.3em;
+				text-decoration: none;
 				cursor: pointer;
 				transition: color 0.2s ease;
 				text-shadow:
@@ -314,6 +340,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 				background: none;
 				border: none;
 				padding: 0;
+				text-decoration: none;
 				cursor: pointer;
 				transition: color 0.2s ease;
 				text-shadow:
@@ -425,11 +452,11 @@ const COLOR_SECONDARY = '#c4ad7a';
 				margin: 0 0 1em;
 			}
 
-			/* About's {imagery} line (see index.astro frontmatter) is rebuilt as
-			   a single-cell grid with its live text and a hidden same-styled
-			   "sizer" overlapping in that cell - the cell's height becomes
-			   whichever of the two is taller, so changing the live text never
-			   changes this paragraph's height. */
+			/* About's {feelings}/{what} lines (see index.astro frontmatter) are
+			   each rebuilt as a single-cell grid with their live text and a
+			   hidden same-styled "sizer" overlapping in that cell - the cell's
+			   height becomes whichever of the two is taller, so changing the
+			   live text never changes that paragraph's height. */
 			.tattered-box :global(.dynamic-field-wrapper) {
 				display: grid;
 			}
@@ -439,10 +466,11 @@ const COLOR_SECONDARY = '#c4ad7a';
 			.tattered-box :global(.dynamic-field-sizer) {
 				visibility: hidden;
 			}
-			/* Duration here must match IMAGERY_FADE_DURATION_MS in index.astro's
-			   frontmatter, which times the text swap to land while this is
-			   fully faded out. */
-			.tattered-box :global(.dynamic-field[data-field='imagery']) {
+			/* Duration here must match FADE_DURATION_MS in index.astro's
+			   frontmatter, which times each field's text swap to land while
+			   this is fully faded out - applies to all three dynamic fields
+			   (feelings, what, names-and-weirdos). */
+			.tattered-box :global(.dynamic-field) {
 				transition: opacity 0.6s ease;
 			}
 
@@ -640,7 +668,13 @@ const COLOR_SECONDARY = '#c4ad7a';
 					{i < NAV_WINDOW_SIZE - 1 && (
 						<span class="nav-gap" data-gap={i}>
 							{STATIC_GAP_ASSIGNMENT[i] && (
-								<button type="button" class="nav-link" data-target-index={STATIC_GAP_ASSIGNMENT[i].targetIndex}>{STATIC_GAP_ASSIGNMENT[i].label}</button>
+								<a
+									class="nav-link"
+									href={`#${STATIC_GAP_ASSIGNMENT[i].slug}`}
+									data-target-index={STATIC_GAP_ASSIGNMENT[i].targetIndex}
+								>
+									{STATIC_GAP_ASSIGNMENT[i].label}
+								</a>
 							)}
 						</span>
 					)}
@@ -665,7 +699,7 @@ const COLOR_SECONDARY = '#c4ad7a';
 
 		<div class="content-overlay">
 			{contentSets.map((set) => (
-				<div class="content-set" data-index={set.index} data-layout={set.layout}>
+				<div class="content-set" id={slugify(set.label)} data-index={set.index} data-layout={set.layout}>
 					{set.layout === 'tattered-text' && (
 						<div class="tattered-box">
 							<div class="tattered-box-scroll" set:html={set.html} />
@@ -713,9 +747,9 @@ const COLOR_SECONDARY = '#c4ad7a';
 		</div>
 
 		<nav class="section-nav">
-			<button type="button" class="section-nav-link" data-target-index="0">Home</button>
+			<a class="section-nav-link" href="#home" data-target-index="0">Home</a>
 			{pageSets.map((set) => (
-				<button type="button" class="section-nav-link" data-target-index={set.index}>{set.label}</button>
+				<a class="section-nav-link" href={`#${slugify(set.label)}`} data-target-index={set.index}>{set.label}</a>
 			))}
 		</nav>
 
@@ -757,11 +791,11 @@ const COLOR_SECONDARY = '#c4ad7a';
 				if (!forbiddenGaps.has(g)) allowedGaps.push(g);
 			}
 
-			const navLinkButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.nav-link'));
-			navLinkButtons.forEach((button) => button.remove());
+			const navLinkAnchors = Array.from(document.querySelectorAll<HTMLAnchorElement>('.nav-link'));
+			navLinkAnchors.forEach((anchor) => anchor.remove());
 
-			const chosenGaps = shuffle(allowedGaps).slice(0, navLinkButtons.length);
-			const shuffledButtons = shuffle(navLinkButtons);
+			const chosenGaps = shuffle(allowedGaps).slice(0, navLinkAnchors.length);
+			const shuffledButtons = shuffle(navLinkAnchors);
 
 			chosenGaps.forEach((gap, i) => {
 				document.querySelector(`.nav-gap[data-gap="${gap}"]`)?.appendChild(shuffledButtons[i]);
@@ -805,9 +839,12 @@ const COLOR_SECONDARY = '#c4ad7a';
 				imageParallaxFactor: IMAGE_PARALLAX_FACTOR,
 				contentPeakSpacing: CONTENT_PEAK_SPACING,
 				contentFadeHalfWidth: CONTENT_FADE_HALF_WIDTH,
-				imageryList,
+				feelingsList,
+				whatList,
 				namesList,
-				imageryFadeDurationMs: IMAGERY_FADE_DURATION_MS,
+				fadeDurationMs: FADE_DURATION_MS,
+				namesFadeIntervalMs: NAMES_FADE_INTERVAL_MS,
+				namesSuffix: NAMES_SUFFIX,
 			}}
 		>
 			// Parallax layers 2 and 3. One continuous scroll progress value
@@ -829,12 +866,14 @@ const COLOR_SECONDARY = '#c4ad7a';
 			const sectionNav = document.querySelector('.section-nav');
 			const sectionNavLinks = Array.from(document.querySelectorAll('.section-nav-link'));
 
-			// About's {imagery}/{names} fields (see index.astro frontmatter,
-			// which renders a static step-0 value into these spans server-side -
-			// just a placeholder until this script picks something random).
-			const dynamicImagerySpan = document.querySelector('.dynamic-field[data-field="imagery"]');
-			const dynamicNamesSpan = document.querySelector('.dynamic-field[data-field="names"]');
-
+			// About's {feelings}/{what}/{names-and-weirdos} fields (see index.astro
+			// frontmatter, which renders a static step-0 value into these
+			// spans server-side - just a placeholder until this script picks
+			// something random). All three fade out, swap, and fade back in
+			// on their own independent, out-of-sync timers - the opacity dip
+			// is a CSS transition (see .dynamic-field below) timed to match
+			// fadeDurationMs, with the text swapped at the bottom of the dip
+			// while it's invisible.
 			function shuffle(items) {
 				const result = items.slice();
 				for (let i = result.length - 1; i > 0; i--) {
@@ -844,43 +883,95 @@ const COLOR_SECONDARY = '#c4ad7a';
 				return result;
 			}
 
-			// Names: one random order, picked once on load, then left alone.
-			if (dynamicNamesSpan) {
-				dynamicNamesSpan.textContent = shuffle(namesList).join(', ');
+			// Names: a random order on load, then reshuffled on a flat
+			// interval (unlike feelings/what below, which hold longer
+			// phrases longer) - it's a fixed set of words, not a list of
+			// options, so word count isn't a meaningful way to pace it.
+			// namesSuffix is static text, but re-appended (and so faded)
+			// alongside every reshuffle rather than living outside the span.
+			function setupNamesField(fieldName, list, suffix, intervalMs) {
+				const span = document.querySelector(`.dynamic-field[data-field="${fieldName}"]`);
+				if (!span) return;
+
+				let current = shuffle(list).join(', ') + suffix;
+				span.textContent = current;
+
+				setInterval(() => {
+					span.style.opacity = '0';
+					setTimeout(() => {
+						// Exclude the current order so every swap is a visible
+						// change, not just a shorter set of orders to pick from.
+						let next = current;
+						if (list.length > 1) {
+							while (next === current) {
+								next = shuffle(list).join(', ') + suffix;
+							}
+						}
+						current = next;
+						span.textContent = current;
+						span.style.opacity = '1';
+					}, fadeDurationMs);
+				}, intervalMs);
 			}
+			setupNamesField('names-and-weirdos', namesList, namesSuffix, namesFadeIntervalMs);
 
-			// Imagery: a random line on load, then fade to a different random
-			// line after holding it for (word count / 2) seconds - longer
-			// phrases stay up longer. The fade is just an opacity dip timed to
-			// match the CSS transition below (see .dynamic-field), with the
-			// text swapped at the bottom of the dip, while it's invisible.
-			if (dynamicImagerySpan) {
-				let currentImageryIndex = Math.floor(Math.random() * imageryList.length);
-				dynamicImagerySpan.textContent = imageryList[currentImageryIndex];
+			// Feelings/what: a random line on load, then fade to a different
+			// random line after holding it for (word count / 2) seconds -
+			// longer phrases stay up longer.
+			function setupFadingField(fieldName, list) {
+				const span = document.querySelector(`.dynamic-field[data-field="${fieldName}"]`);
+				if (!span) return;
 
-				function scheduleImageryFade() {
-					const wordCount = imageryList[currentImageryIndex].trim().split(/\s+/).length;
+				let currentIndex = Math.floor(Math.random() * list.length);
+				span.textContent = list[currentIndex];
+
+				function scheduleFade() {
+					const wordCount = list[currentIndex].trim().split(/\s+/).length;
 					const holdDurationMs = (wordCount / 2) * 1000;
 					setTimeout(() => {
-						dynamicImagerySpan.style.opacity = '0';
+						span.style.opacity = '0';
 						setTimeout(() => {
 							// Exclude the current line so every swap is a visible
 							// change, not just a shorter list to pick from.
-							let nextIndex = currentImageryIndex;
-							if (imageryList.length > 1) {
-								while (nextIndex === currentImageryIndex) {
-									nextIndex = Math.floor(Math.random() * imageryList.length);
+							let nextIndex = currentIndex;
+							if (list.length > 1) {
+								while (nextIndex === currentIndex) {
+									nextIndex = Math.floor(Math.random() * list.length);
 								}
 							}
-							currentImageryIndex = nextIndex;
-							dynamicImagerySpan.textContent = imageryList[currentImageryIndex];
-							dynamicImagerySpan.style.opacity = '1';
-							scheduleImageryFade();
-						}, imageryFadeDurationMs);
+							currentIndex = nextIndex;
+							span.textContent = list[currentIndex];
+							span.style.opacity = '1';
+							scheduleFade();
+						}, fadeDurationMs);
 					}, holdDurationMs);
 				}
-				scheduleImageryFade();
+				scheduleFade();
 			}
+			setupFadingField('feelings', feelingsList);
+			setupFadingField('what', whatList);
+
+			// The {feelings}/{what} paragraphs each already reserve enough
+			// height for their own longest line (see buildDynamicFieldLine in
+			// the frontmatter and the grid-stack CSS below) - this just takes
+			// the larger of those two independently-computed heights and
+			// applies it to both, so neither paragraph is taller than the
+			// other depending on which field happens to need more room.
+			// Re-run on resize since the wrap (and so the required height)
+			// depends on viewport width.
+			function equalizeDynamicFieldHeights() {
+				const wrappers = Array.from(document.querySelectorAll('.dynamic-field-wrapper[data-field="feelings"], .dynamic-field-wrapper[data-field="what"]'));
+				if (wrappers.length < 2) return;
+				wrappers.forEach((el) => {
+					el.style.minHeight = '';
+				});
+				const maxHeight = Math.max(...wrappers.map((el) => el.offsetHeight));
+				wrappers.forEach((el) => {
+					el.style.minHeight = `${maxHeight}px`;
+				});
+			}
+			equalizeDynamicFieldHeights();
+			window.addEventListener('resize', equalizeDynamicFieldHeights);
 
 			function updateParallax() {
 				const scrollY = window.scrollY;
@@ -926,16 +1017,34 @@ const COLOR_SECONDARY = '#c4ad7a';
 				});
 			}
 
-			// Table-of-contents buttons jump straight to a set's peak scroll
-			// position, recomputed at click time so a resize since load
-			// doesn't throw it off.
-			document.querySelectorAll('[data-target-index]').forEach((button) => {
-				button.addEventListener('click', () => {
-					const targetIndex = Number(button.getAttribute('data-target-index'));
+			// Table-of-contents links are real anchors (href="#video" etc) so
+			// the URL bar reflects the current section and it's shareable -
+			// but since every section is a fixed-position overlay rather than
+			// a document position, there's nothing at that id for the browser
+			// to natively scroll to. So clicking one only updates the hash by
+			// itself; the scroll itself is still this computed jump,
+			// recomputed at click time so a resize since load doesn't throw
+			// it off.
+			document.querySelectorAll('[data-target-index]').forEach((link) => {
+				link.addEventListener('click', () => {
+					const targetIndex = Number(link.getAttribute('data-target-index'));
 					const top = targetIndex * contentPeakSpacing * window.innerHeight;
 					window.scrollTo({ top, behavior: 'smooth' });
 				});
 			});
+
+			// Landing directly on a section's URL (e.g. /#video) needs the
+			// same jump, just instant rather than smooth, and has to happen
+			// before the first updateParallax() below so that call already
+			// reflects the right section instead of flashing Home first.
+			const initialHash = window.location.hash.replace(/^#/, '');
+			if (initialHash) {
+				const initialLink = document.querySelector(`[data-target-index][href="#${initialHash}"]`);
+				if (initialLink) {
+					const targetIndex = Number(initialLink.getAttribute('data-target-index'));
+					window.scrollTo({ top: targetIndex * contentPeakSpacing * window.innerHeight });
+				}
+			}
 
 			updateParallax();
 			window.addEventListener('scroll', updateParallax, { passive: true });

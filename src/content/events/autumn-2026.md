@@ -2,6 +2,4 @@
 title: Autumn 2026
 order: 2
 ---
-Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.
-
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum.
+*Coming soon*
