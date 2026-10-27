@@ -698,8 +698,16 @@ const COLOR_SECONDARY = '#c4ad7a';
 		</div>
 
 		<div class="content-overlay">
+			{/* Deliberately no id={slug} here, even though the nav links below
+			    point at #video etc - these are fixed-position overlays, not
+			    real document positions, so an id matching the URL fragment
+			    just makes the browser's native fragment-scroll fire (to
+			    wherever it decides a position:fixed element's "position" is,
+			    which varies by browser/device) and race against the
+			    script-computed scroll below. Leaving them id-less means
+			    nothing scrolls except that script. */}
 			{contentSets.map((set) => (
-				<div class="content-set" id={slugify(set.label)} data-index={set.index} data-layout={set.layout}>
+				<div class="content-set" data-index={set.index} data-layout={set.layout}>
 					{set.layout === 'tattered-text' && (
 						<div class="tattered-box">
 							<div class="tattered-box-scroll" set:html={set.html} />
@@ -1020,31 +1028,37 @@ const COLOR_SECONDARY = '#c4ad7a';
 			// Table-of-contents links are real anchors (href="#video" etc) so
 			// the URL bar reflects the current section and it's shareable -
 			// but since every section is a fixed-position overlay rather than
-			// a document position, there's nothing at that id for the browser
-			// to natively scroll to. So clicking one only updates the hash by
-			// itself; the scroll itself is still this computed jump,
-			// recomputed at click time so a resize since load doesn't throw
-			// it off.
+			// a document position (see the comment above contentSets.map),
+			// there's deliberately nothing in the DOM for the browser to
+			// natively scroll to. So a click only updates the hash by itself,
+			// and this function is what actually does the scrolling, in all
+			// three cases that need it: a click, loading the page straight on
+			// a section's URL, and the hash changing (e.g. someone edits the
+			// URL bar, or hits back/forward) while the page is already open.
+			function jumpToHash(hash, behavior) {
+				if (!hash) return;
+				const link = document.querySelector(`[data-target-index][href="#${hash}"]`);
+				if (!link) return;
+				const targetIndex = Number(link.getAttribute('data-target-index'));
+				const top = targetIndex * contentPeakSpacing * window.innerHeight;
+				window.scrollTo({ top, behavior });
+			}
+
 			document.querySelectorAll('[data-target-index]').forEach((link) => {
 				link.addEventListener('click', () => {
-					const targetIndex = Number(link.getAttribute('data-target-index'));
-					const top = targetIndex * contentPeakSpacing * window.innerHeight;
-					window.scrollTo({ top, behavior: 'smooth' });
+					jumpToHash(link.getAttribute('href')?.replace(/^#/, ''), 'smooth');
 				});
+			});
+
+			window.addEventListener('hashchange', () => {
+				jumpToHash(window.location.hash.replace(/^#/, ''), 'smooth');
 			});
 
 			// Landing directly on a section's URL (e.g. /#video) needs the
 			// same jump, just instant rather than smooth, and has to happen
 			// before the first updateParallax() below so that call already
 			// reflects the right section instead of flashing Home first.
-			const initialHash = window.location.hash.replace(/^#/, '');
-			if (initialHash) {
-				const initialLink = document.querySelector(`[data-target-index][href="#${initialHash}"]`);
-				if (initialLink) {
-					const targetIndex = Number(initialLink.getAttribute('data-target-index'));
-					window.scrollTo({ top: targetIndex * contentPeakSpacing * window.innerHeight });
-				}
-			}
+			jumpToHash(window.location.hash.replace(/^#/, ''), 'auto');
 
 			updateParallax();
 			window.addEventListener('scroll', updateParallax, { passive: true });
